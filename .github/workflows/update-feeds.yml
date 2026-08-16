@@ -35,12 +35,14 @@ jobs:
 
       - name: Đẩy data.json lên kho nếu có thay đổi
         run: |
-          if git diff --quiet -- data.json; then
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # phải add trước rồi so ở vùng đã stage — "git diff" không thấy file mới tạo lần đầu
+          git add data.json
+          if git diff --cached --quiet -- data.json; then
             echo "Không có tin mới, bỏ qua."
             exit 0
           fi
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data.json
           git commit -m "Cập nhật tin $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git pull --rebase --autostash origin main || true
           git push
