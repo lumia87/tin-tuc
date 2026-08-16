@@ -1,0 +1,46 @@
+name: Gom tin RSS
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'      # cứ 30 phút một lần (giờ UTC, GitHub có thể chạy trễ vài phút)
+  workflow_dispatch:             # cho phép bấm chạy tay trong tab Actions
+  push:
+    paths:
+      - 'index.html'             # đổi danh sách nguồn là dựng lại ngay
+      - 'fetch-feeds.mjs'
+      - '.github/workflows/update-feeds.yml'
+
+permissions:
+  contents: write                # cần quyền này để ghi data.json ngược lại kho
+
+concurrency:
+  group: gom-tin
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cài thư viện đọc XML
+        run: npm install --no-save fast-xml-parser
+
+      - name: Gom feed và ghi data.json
+        run: node fetch-feeds.mjs index.html data.json
+
+      - name: Đẩy data.json lên kho nếu có thay đổi
+        run: |
+          if git diff --quiet -- data.json; then
+            echo "Không có tin mới, bỏ qua."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data.json
+          git commit -m "Cập nhật tin $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push
