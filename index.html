@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tin Công Nghệ — không quảng cáo</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --panel-2:#fbfbfc; --line:#e4e6ea;
+    --text:#16181d; --muted:#6b7280; --accent:#2f6fed; --accent-soft:#e8efff;
+    --chip:#eef0f4; --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.06);
+  }
+  html[data-theme="dark"]{
+    --bg:#0e1116; --panel:#161a21; --panel-2:#1b2029; --line:#272d37;
+    --text:#e7eaf0; --muted:#98a1b0; --accent:#6f9bff; --accent-soft:#1d2740;
+    --chip:#212733; --shadow:none;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;text-decoration:none}
+  header.top{
+    position:sticky; top:0; z-index:20; background:var(--panel);
+    border-bottom:1px solid var(--line); backdrop-filter:saturate(180%) blur(8px);
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:0 16px}
+  .bar{display:flex;align-items:center;gap:12px;padding:12px 0;flex-wrap:wrap}
+  .logo{font-weight:700;font-size:17px;letter-spacing:-.2px;display:flex;align-items:center;gap:8px}
+  .logo .dot{width:9px;height:9px;border-radius:50%;background:var(--accent)}
+  .grow{flex:1}
+  .search{
+    display:flex;align-items:center;gap:8px;background:var(--chip);
+    border:1px solid transparent;border-radius:9px;padding:7px 11px;min-width:200px;
+  }
+  .search:focus-within{border-color:var(--accent);background:var(--panel)}
+  .search input{border:0;outline:0;background:transparent;color:var(--text);width:100%;font-size:14px}
+  .btn{
+    display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);
+    background:var(--panel);color:var(--text);border-radius:9px;padding:7px 12px;
+    font-size:14px;cursor:pointer;white-space:nowrap
+  }
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{opacity:.9;color:#fff}
+  .tabs{display:flex;gap:2px;overflow-x:auto;border-bottom:1px solid var(--line);margin-bottom:10px;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{
+    border:0;background:transparent;color:var(--muted);padding:8px 12px 10px;font-size:13.5px;
+    cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-1px;font-weight:550
+  }
+  .tab:hover{color:var(--text)}
+  .tab[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+  .tab .n{font-size:11px;opacity:.7;margin-left:5px;font-variant-numeric:tabular-nums}
+  .chips{display:flex;gap:8px;padding:0 0 12px;flex-wrap:wrap;align-items:center}
+  .chip{
+    border:1px solid var(--line);background:var(--panel);border-radius:999px;
+    padding:5px 12px;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;
+    user-select:none;transition:.12s
+  }
+  .chip .sq{width:8px;height:8px;border-radius:2px;flex:none}
+  .chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+  .chip .n{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .chip[aria-pressed="true"] .n{color:var(--accent)}
+  .chip.err{border-style:dashed;opacity:.65}
+  main{padding:20px 0 60px}
+  .meta-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+  .meta-row .info{font-size:13px;color:var(--muted)}
+  select.sort{
+    border:1px solid var(--line);background:var(--panel);color:var(--text);
+    border-radius:9px;padding:6px 10px;font-size:13px;outline:0;cursor:pointer
+  }
+  .list{display:grid;gap:10px}
+a.card{
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:14px 16px;box-shadow:var(--shadow);transition:.12s;display:block
+  }
+  a.card:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .card h2{margin:0 0 6px;font-size:16.5px;line-height:1.42;font-weight:640;letter-spacing:-.1px}
+  .card .sum{margin:0;color:var(--muted);font-size:13.5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .card .foot{display:flex;align-items:center;gap:8px;margin-top:9px;font-size:12.5px;color:var(--muted);flex-wrap:wrap}
+  .card .orig{margin:0 0 6px;font-size:12.5px;color:var(--muted);opacity:.8;font-style:italic;
+    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+  .tbtn{
+    border:1px solid var(--line);border-radius:7px;padding:1px 7px;font-size:11.5px;
+    cursor:pointer;color:var(--muted);background:var(--panel-2)
+  }
+  .tbtn:hover{border-color:var(--accent);color:var(--accent)}
+  .tbadge{
+    background:var(--accent-soft);color:var(--accent);border-radius:6px;
+    padding:1px 6px;font-size:11px;font-weight:600
+  }
+  .src{display:inline-flex;align-items:center;gap:6px;font-weight:600}
+  .src .sq{width:8px;height:8px;border-radius:2px}
+  .sep{opacity:.45}
+  .skel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .skel .l{height:11px;border-radius:6px;background:var(--chip);margin:7px 0;animation:p 1.2s infinite ease-in-out}
+  @keyframes p{0%,100%{opacity:.55}50%{opacity:1}}
+  .empty{text-align:center;color:var(--muted);padding:50px 20px;font-size:14px}
+  .notice{
+    background:var(--panel-2);border:1px solid var(--line);border-radius:10px;
+    padding:10px 13px;font-size:13px;color:var(--muted);margin-bottom:14px
+  }
+  dialog{
+    border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--text);
+    padding:0;max-width:520px;width:calc(100% - 32px)
+  }
+  dialog::backdrop{background:rgba(8,10,14,.45)}
+  .dlg-h{padding:14px 18px;border-bottom:1px solid var(--line);font-weight:650}
+  .dlg-b{padding:16px 18px;font-size:14px}
+  .dlg-b label{display:block;font-size:12.5px;color:var(--muted);margin:10px 0 5px}
+  .dlg-b input{width:100%;padding:8px 11px;border:1px solid var(--line);border-radius:9px;background:var(--panel-2);color:var(--text);outline:0;font-size:14px}
+  .dlg-b input:focus{border-color:var(--accent)}
+  .dlg-f{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+  code{background:var(--chip);padding:1px 5px;border-radius:5px;font-size:12.5px}
+
+  /* ----- bài đã đọc ----- */
+  a.card.read{opacity:.62}
+  a.card.read h2{font-weight:560}
+  .dotnew{width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;flex:none}
+
+  /* ----- công tắc nhỏ ----- */
+  .toggle{
+    display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--panel);
+    color:var(--muted);border-radius:9px;padding:6px 11px;font-size:13px;cursor:pointer;user-select:none
+  }
+  .toggle[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+
+  /* ----- khung đọc nhanh ----- */
+  .rd-back{position:fixed;inset:0;background:rgba(8,10,14,.5);z-index:40;animation:fade .15s}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .reader{
+    position:fixed;top:0;right:0;bottom:0;width:min(780px,100%);z-index:41;
+    background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;
+    animation:slide .18s cubic-bezier(.2,.8,.3,1)
+  }
+  @keyframes slide{from{transform:translateX(24px);opacity:.4}to{transform:none;opacity:1}}
+  .rd-head{
+    display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid var(--line);
+    flex:none;flex-wrap:wrap
+  }
+  .rd-head .who{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:6px;min-width:0}
+  .rd-head .who b{color:var(--text)}
+  .rd-body{overflow:auto;padding:22px 30px 70px;line-height:1.75;font-size:16px}
+  .rd-body h1.t{font-size:24px;line-height:1.3;margin:0 0 6px;letter-spacing:-.3px}
+  .rd-body .meta{color:var(--muted);font-size:13px;margin:0 0 20px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+  .rd-body p{margin:0 0 16px}
+  .rd-body h2,.rd-body h3,.rd-body h4{line-height:1.35;margin:26px 0 10px}
+  .rd-body h2{font-size:19px} .rd-body h3{font-size:17px} .rd-body h4{font-size:15.5px}
+  .rd-body img{max-width:100%;height:auto;border-radius:8px;display:block;margin:16px auto}
+  .rd-body a{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+  .rd-body ul,.rd-body ol{margin:0 0 16px;padding-left:24px}
+  .rd-body li{margin:4px 0}
+  .rd-body blockquote{margin:0 0 16px;padding:2px 0 2px 16px;border-left:3px solid var(--line);color:var(--muted)}
+  .rd-body pre{background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:12px 14px;overflow:auto;font-size:13px;line-height:1.6}
+  .rd-body table{width:100%;border-collapse:collapse;margin:0 0 16px;font-size:14px}
+  .rd-body td,.rd-body th{border:1px solid var(--line);padding:7px 10px;text-align:left}
+  .rd-body figcaption{color:var(--muted);font-size:12.5px;text-align:center;margin:-8px 0 16px}
+  .rd-body .tr{color:var(--muted);font-size:14px;font-style:italic;margin:-10px 0 16px}
+  .rd-note{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;color:var(--muted);font-size:13.5px}
+  @media(max-width:640px){ .rd-body{padding:18px 18px 60px;font-size:15.5px} }
+  @media(max-width:560px){ .logo span.t{display:none} .search{order:9;width:100%} }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="bar">
+      <div class="logo"><span class="dot"></span><span class="t">Tin Công Nghệ</span></div>
+      <div class="search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--muted)"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="Tìm trong tiêu đề, tóm tắt…" autocomplete="off">
+      </div>
+      <div class="grow"></div>
+      <button class="btn" id="trBtn" title="Tự động dịch các bài tiếng nước ngoài sang tiếng Việt">🌐 Dịch</button>
+      <button class="btn" id="addBtn" title="Thêm nguồn RSS">+ Nguồn</button>
+      <button class="btn" id="cfgBtn" title="Cấu hình, xuất/nhập, đã đọc">⚙</button>
+      <button class="btn" id="themeBtn" title="Đổi giao diện sáng/tối">◐</button>
+      <button class="btn primary" id="reload">Làm mới</button>
+    </div>
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <div class="chips" id="chips"></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="notice" id="notice" hidden></div>
+  <div class="meta-row">
+    <div class="info" id="info">Đang tải…</div>
+    <div style="display:flex;gap:8px;align-items:center">
+    <button class="toggle" id="unreadBtn" aria-pressed="false" title="Ẩn những bài đã mở">Chỉ bài chưa đọc</button>
+    <select class="sort" id="sort">
+      <option value="time">Mới nhất trước</option>
+      <option value="source">Nhóm theo nguồn</option>
+      <option value="title">Theo tiêu đề (A→Z)</option>
+    </select>
+    </div>
+  </div>
+  <div class="list" id="list"></div>
+</main>
+
+<!-- khung đọc nhanh -->
+<div id="rdWrap" hidden>
+  <div class="rd-back" id="rdBack"></div>
+  <aside class="reader" role="dialog" aria-modal="true" aria-label="Khung đọc bài">
+    <div class="rd-head">
+      <div class="who" id="rdWho"></div>
+      <div class="grow"></div>
+      <button class="btn" id="rdTr" title="Dịch toàn bộ bài sang tiếng Việt">🌐 Dịch bài</button>
+      <a class="btn" id="rdOpen" target="_blank" rel="noopener noreferrer">Trang gốc ↗</a>
+      <button class="btn" id="rdClose" title="Đóng (Esc)">✕</button>
+    </div>
+    <div class="rd-body" id="rdBody"></div>
+  </aside>
+</div>
+
+<dialog id="addDlg">
+  <form method="dialog">
+    <div class="dlg-h">Thêm nguồn RSS</div>
+    <div class="dlg-b">
+      <label>Tên hiển thị</label>
+      <input id="nName" placeholder="VD: Tinh Tế">
+      <label>Địa chỉ RSS / Atom</label>
+      <input id="nUrl" placeholder="https://vidu.com/rss">
+      <p style="color:var(--muted);font-size:12.5px;margin:12px 0 0">
+        Nguồn thêm ở đây chỉ có tác dụng tới khi tải lại trang. Muốn giữ vĩnh viễn, mở file bằng
+        Notepad/VS Code và thêm vào mảng <code>SOURCES</code> ở đầu phần script.
+      </p>
+    </div>
+    <div class="dlg-f">
+      <button class="btn" value="cancel">Huỷ</button>
+      <button class="btn primary" id="addOk" value="ok">Thêm</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="cfgDlg">
+  <div class="dlg-h">Cấu hình</div>
+  <div class="dlg-b">
+    <label style="display:flex;align-items:center;gap:9px;margin:0 0 14px;color:var(--text);font-size:14px;cursor:pointer">
+      <input type="checkbox" id="cfgPersist" style="width:auto;margin:0">
+      Ghi nhớ cấu hình trên máy này
+    </label>
+    <p style="color:var(--muted);font-size:12.5px;margin:0 0 16px">
+      Lưu nguồn bật/tắt, chuyên mục, giao diện sáng-tối, nguồn tự thêm và danh sách bài đã đọc — ngay trong
+      trình duyệt, không gửi đi đâu cả. Tắt ô này thì mọi thứ chỉ tồn tại tới khi đóng trang.
+    </p>
+    <label style="display:flex;align-items:center;gap:9px;margin:0 0 6px;color:var(--text);font-size:14px;cursor:pointer">
+      <input type="checkbox" id="cfgLazy" style="width:auto;margin:0">
+      Tải nhẹ — chỉ lấy nguồn của chuyên mục đang xem
+    </label>
+    <p style="color:var(--muted);font-size:12.5px;margin:0 0 16px">
+      Mở tab nào mới tải nguồn của tab đó, nhanh hơn hẳn khi bật nhiều nguồn.
+      Riêng tab <b>Tất cả</b> thì vẫn lấy hết.
+    </p>
+    <div id="cfgStat" style="font-size:13px;color:var(--muted);margin-bottom:14px"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" id="cfgExport">⬇ Xuất file cấu hình</button>
+      <button class="btn" id="cfgImport">⬆ Nhập từ file</button>
+      <button class="btn" id="cfgClearRead">Xoá dấu đã đọc</button>
+      <button class="btn" id="cfgReset">Khôi phục mặc định</button>
+    </div>
+    <input type="file" id="cfgFile" accept="application/json,.json" hidden>
+  </div>
+  <div class="dlg-f"><button class="btn primary" id="cfgClose">Xong</button></div>
+</dialog>
+
+<script>
+/* ============================================================
+   1. DANH SÁCH NGUỒN TIN  — sửa ở đây để thêm/bớt/tắt nguồn
+   enabled:false  => vẫn có trong danh sách nhưng không bật sẵn
+   ============================================================ */
+const GROUPS = [
+  { id:'all',  name:'Tất cả' },
+  { id:'vn',   name:'Tiếng Việt' },
+  { id:'sec',  name:'Bảo mật · Hacker' },
+  { id:'linux',name:'Linux' },
+  { id:'net',  name:'Quản trị mạng' },
+  { id:'db',   name:'Cơ sở dữ liệu' },
+  { id:'algo', name:'Thuật toán' },
+  { id:'math', name:'Toán học' },
+  { id:'stat', name:'Thống kê · Dữ liệu' },
+  { id:'sci',  name:'Khoa học' },
+  { id:'dev',  name:'Lập trình' }
+];
+
+const SOURCES = [
+  /* ---------- TIẾNG VIỆT ---------- */
+  { id:'qtm',   name:'Quản Trị Mạng', group:'vn', lang:'vi', color:'#e2574c', enabled:true,
+    url:'https://news.google.com/rss/search?q=site:quantrimang.com+when:7d&hl=vi&gl=VN&ceid=VN:vi' },
+  { id:'vnex',  name:'VnExpress Số hóa', group:'vn', lang:'vi', color:'#1a73e8', enabled:true,
+    url:'https://vnexpress.net/rss/so-hoa.rss' },
+  { id:'genk',  name:'GenK', group:'vn', lang:'vi', color:'#f0a020', enabled:true,
+    url:'https://genk.vn/rss/home.rss' },
+  { id:'viblo', name:'Viblo · Chọn lọc', group:'vn', lang:'vi', color:'#5b8def', enabled:true,
+    url:'https://viblo.asia/rss/posts/editors-choice.rss' },
+
+  /* ---------- BẢO MẬT · HACKER ---------- */
+  { id:'thn',   name:'The Hacker News', group:'sec', color:'#d62828', enabled:true,
+    url:'https://feeds.feedburner.com/TheHackersNews' },
+  { id:'bleep', name:'BleepingComputer', group:'sec', color:'#0a7cbd', enabled:true,
+    url:'https://www.bleepingcomputer.com/feed/' },
+  { id:'krebs', name:'Krebs on Security', group:'sec', color:'#8b1a1a', enabled:true,
+    url:'https://krebsonsecurity.com/feed/' },
+  { id:'sans',  name:'SANS ISC (cảnh báo)', group:'sec', color:'#b45309', enabled:true,
+    url:'https://isc.sans.edu/rssfeed.xml' },
+
+  /* ---------- LINUX ---------- */
+  { id:'itsfoss', name:"It's FOSS", group:'linux', color:'#00a3a3', enabled:true,
+    url:'https://feed.itsfoss.com/' },
+  { id:'phoronix',name:'Phoronix', group:'linux', color:'#a3a300', enabled:true,
+    url:'https://www.phoronix.com/rss.php' },
+  { id:'lwn',     name:'LWN.net', group:'linux', color:'#4b6ea9', enabled:true,
+    url:'https://lwn.net/headlines/newrss' },
+
+  /* ---------- QUẢN TRỊ MẠNG / SYSADMIN ---------- */
+  { id:'nixcraft', name:'nixCraft', group:'net', color:'#2d6a4f', enabled:true,
+    url:'https://www.cyberciti.com/feed/' },
+
+  /* ---------- CƠ SỞ DỮ LIỆU ---------- */
+  { id:'planetpg', name:'Planet PostgreSQL', group:'db', color:'#336791', enabled:true,
+    url:'https://planet.postgresql.org/rss20.xml' },
+  { id:'percona',  name:'Percona (MySQL/Mongo)', group:'db', color:'#c0392b', enabled:true,
+    url:'https://www.percona.com/blog/feed/' },
+  { id:'murat',    name:'Metadata (Murat Buffalo)', group:'db', color:'#5b21b6', enabled:true,
+    url:'https://muratbuffalo.blogspot.com/feeds/posts/default' },
+
+  /* ---------- THUẬT TOÁN · TUTORIAL (mức dễ đọc) ---------- */
+  { id:'viblo_algo', name:'Viblo · Thuật toán (VN)', group:'algo', lang:'vi', color:'#5b8def', enabled:true,
+    url:'https://viblo.asia/rss/tags/algorithm.rss' },
+  { id:'baeldung',   name:'Baeldung on CS', group:'algo', color:'#1d4ed8', enabled:true,
+    url:'https://feeds.feedblitz.com/baeldung/cs' },
+  { id:'devto_algo', name:'DEV.to · Thuật toán', group:'algo', color:'#7b5cff', enabled:true,
+    url:'https://dev.to/feed/tag/algorithms' },
+  { id:'bytego',     name:'ByteByteGo', group:'algo', color:'#0ea5e9', enabled:true,
+    url:'https://blog.bytebytego.com/feed' },
+  { id:'fcc',        name:'freeCodeCamp', group:'algo', color:'#0a0a23', enabled:false,
+    url:'https://www.freecodecamp.org/news/rss/' },
+  { id:'quantacs',   name:'Quanta · Khoa học máy tính', group:'algo', color:'#7c3aed', enabled:true,
+    url:'https://www.quantamagazine.org/computer-science/feed/' },
+
+  /* ---------- TOÁN HỌC THƯỜNG THỨC ---------- */
+  { id:'quantam',  name:'Quanta · Toán học', group:'math', color:'#7c3aed', enabled:true,
+    url:'https://www.quantamagazine.org/mathematics/feed/' },
+  { id:'plusmag',  name:'Plus Magazine', group:'math', color:'#ea580c', enabled:true,
+    url:'https://plus.maths.org/content/rss.xml' },
+  { id:'aperiod',  name:'The Aperiodical (điểm tin)', group:'math', color:'#0891b2', enabled:true,
+    url:'https://aperiodical.com/feed/' },
+  { id:'mathbad',  name:'Math with Bad Drawings', group:'math', color:'#db2777', enabled:true,
+    url:'https://mathwithbaddrawings.com/feed/' },
+  { id:'chalkdust',name:'Chalkdust', group:'math', color:'#65a30d', enabled:true,
+    url:'https://chalkdustmagazine.com/feed/' },
+  { id:'amsfc',    name:'AMS Feature Column', group:'math', color:'#1e3a8a', enabled:true,
+    url:'https://mathvoices.ams.org/featurecolumn/feed/' },
+
+  /* ---------- THỐNG KÊ · DỮ LIỆU (mức thường thức) ---------- */
+  { id:'flowing',  name:'FlowingData', group:'stat', color:'#0d9488', enabled:true,
+    url:'https://flowingdata.com/feed/' },
+  { id:'owid',     name:'Our World in Data', group:'stat', color:'#c0392b', enabled:true,
+    url:'https://ourworldindata.org/atom.xml' },
+  { id:'statjim',  name:'Statistics By Jim (bài giảng)', group:'stat', color:'#2563eb', enabled:true,
+    url:'https://statisticsbyjim.com/feed/' },
+  { id:'dwrap',    name:'Datawrapper (điểm tin biểu đồ)', group:'stat', color:'#e11d48', enabled:true,
+    url:'https://www.datawrapper.de/blog/feed.xml' },
+
+  /* ---------- KHOA HỌC THƯỜNG THỨC ---------- */
+  { id:'scidaily', name:'ScienceDaily', group:'sci', color:'#0f766e', enabled:true,
+    url:'https://www.sciencedaily.com/rss/all.xml' },
+  { id:'quanta',   name:'Quanta Magazine', group:'sci', color:'#7c3aed', enabled:true,
+    url:'https://www.quantamagazine.org/feed/' },
+  { id:'khoahoc',  name:'KhoaHoc.tv (VN)', group:'sci', lang:'vi', color:'#0891b2', enabled:true,
+    url:'https://news.google.com/rss/search?q=site:khoahoc.tv+when:7d&hl=vi&gl=VN&ceid=VN:vi' },
+  { id:'vnex_kh2', name:'VnExpress Khoa học', group:'sci', lang:'vi', color:'#00897b', enabled:true,
+    url:'https://vnexpress.net/rss/khoa-hoc.rss' },
+  { id:'scinews',  name:'Science News', group:'sci', color:'#b91c1c', enabled:true,
+    url:'https://www.sciencenews.org/feed' },
+  { id:'physorg2', name:'Phys.org', group:'sci', color:'#0369a1', enabled:true,
+    url:'https://phys.org/rss-feed/' },
+
+  /* ---------- LẬP TRÌNH ---------- */
+  { id:'devto', name:'DEV.to', group:'dev', color:'#7b5cff', enabled:true,
+    url:'https://dev.to/feed' },
+  { id:'hn',    name:'Hacker News', group:'dev', color:'#ff6600', enabled:true,
+    url:'https://hnrss.org/frontpage?points=100' },
+  { id:'ghtr',  name:'GitHub Trending', group:'dev', color:'#22a06b', enabled:true,
+    url:'https://mshibanami.github.io/GitHubTrendingRSS/daily/all.xml' },
+
+  /* ===== NGUỒN DỰ PHÒNG — đổi enabled:true để bật =====================
+     (hoặc bấm chip trên giao diện để bật tạm cho phiên đang xem)        */
+  { id:'schneier', name:'Schneier on Security', group:'sec', color:'#6b7280', enabled:false,
+    url:'https://www.schneier.com/feed/atom/' },
+  { id:'darkread', name:'Dark Reading', group:'sec', color:'#111827', enabled:false,
+    url:'https://www.darkreading.com/rss.xml' },
+  { id:'omgubuntu',name:'OMG! Ubuntu', group:'linux', color:'#e95420', enabled:false,
+    url:'https://www.omgubuntu.co.uk/feed' },
+  { id:'packetp',  name:'Packet Pushers', group:'net', color:'#1f6feb', enabled:false,
+    url:'https://feeds.packetpushers.net/packetpushersfullfeed' },
+  { id:'planetscale', name:'PlanetScale (Vitess/PG)', group:'db', color:'#0f766e', enabled:false,
+    url:'https://planetscale.com/blog/rss.xml' },
+  { id:'arxivdb',  name:'arXiv cs.DB (bài mới)', group:'db', color:'#7f1d1d', enabled:false,
+    url:'https://rss.arxiv.org/rss/cs.DB' },
+  /* --- thuật toán: mức tutorial thêm --- */
+  { id:'devto_ds', name:'DEV.to · Cấu trúc dữ liệu', group:'algo', color:'#7b5cff', enabled:false,
+    url:'https://dev.to/feed/tag/datastructures' },
+  { id:'realpy',   name:'Real Python', group:'algo', color:'#facc15', enabled:false,
+    url:'https://realpython.com/atom.xml' },
+  { id:'soblog',   name:'Stack Overflow Blog', group:'algo', color:'#f48024', enabled:false,
+    url:'https://stackoverflow.blog/feed/' },
+  { id:'tdcd',     name:'Tôi đi code dạo (VN)', group:'algo', lang:'vi', color:'#16a34a', enabled:false,
+    url:'https://toidicodedao.com/feed/' },
+
+  /* --- thuật toán & toán: mức nghiên cứu chuyên sâu --- */
+  { id:'cplx',     name:'Computational Complexity', group:'algo', color:'#1d4ed8', enabled:false,
+    url:'https://blog.computationalcomplexity.org/feeds/posts/default' },
+  { id:'shtetl',   name:'Shtetl-Optimized (Aaronson)', group:'algo', color:'#be185d', enabled:false,
+    url:'https://scottaaronson.blog/?feed=rss2' },
+  { id:'jkun',     name:'Math ∩ Programming', group:'algo', color:'#047857', enabled:false,
+    url:'https://www.jeremykun.com/index.xml' },
+  { id:'arxivds',  name:'arXiv cs.DS (bài mới)', group:'algo', color:'#7f1d1d', enabled:false,
+    url:'https://rss.arxiv.org/rss/cs.DS' },
+  { id:'tao',      name:"Terence Tao — What's new", group:'math', color:'#0f172a', enabled:false,
+    url:'https://terrytao.wordpress.com/feed/' },
+  { id:'kalai',    name:'Combinatorics and more', group:'math', color:'#a16207', enabled:false,
+    url:'https://gilkalai.wordpress.com/feed/' },
+  { id:'arxivco',  name:'arXiv math.CO (bài mới)', group:'math', color:'#7f1d1d', enabled:false,
+    url:'https://rss.arxiv.org/rss/math.CO' },
+  { id:'nautilus', name:'Nautilus', group:'sci', color:'#155e75', enabled:false,
+    url:'https://nautil.us/feed/' },
+  { id:'bbcsci',   name:'BBC Science', group:'sci', color:'#bb1919', enabled:false,
+    url:'https://feeds.bbci.co.uk/news/science_and_environment/rss.xml' },
+  { id:'nasa',     name:'NASA', group:'sci', color:'#0b3d91', enabled:false,
+    url:'https://www.nasa.gov/rss/dyn/breaking_news.rss' },
+  { id:'pudding',  name:'The Pudding', group:'stat', color:'#7c2d12', enabled:false,
+    url:'https://pudding.cool/rss.xml' },
+  { id:'rblog',    name:'R-bloggers', group:'stat', color:'#1e40af', enabled:false,
+    url:'https://www.r-bloggers.com/feed/' },
+  { id:'gelman',   name:'Statistical Modeling (Gelman)', group:'stat', color:'#4d7c0f', enabled:false,
+    url:'https://statmodeling.stat.columbia.edu/feed/' },
+  { id:'tinhte',   name:'Tinh Tế', group:'vn', lang:'vi', color:'#e0245e', enabled:false,
+    url:'https://tinhte.vn/rss' },
+  { id:'devto_js', name:'DEV.to · JavaScript', group:'dev', color:'#c9a900', enabled:false,
+    url:'https://dev.to/feed/tag/javascript' },
+  { id:'verge',    name:'The Verge', group:'dev', color:'#5200ff', enabled:false,
+    url:'https://www.theverge.com/rss/index.xml' }
+];
+
+/* Các "cầu nối" CORS — thử lần lượt cho tới khi có cái chạy được.
+   Cần thiết vì trình duyệt không cho trang web tự đọc RSS của tên miền khác. */
+const PROXIES = [
+  u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+  u => 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(u),
+  u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
+  u => 'https://api.allorigins.win/raw?charset=UTF-8&url=' + encodeURIComponent(u)
+];
+
+/* Dịch sang tiếng Việt — thử lần lượt, cái nào chạy được thì dùng tiếp cái đó.
+   Không cần API key. Nếu tất cả đều hỏng thì bài giữ nguyên văn bản gốc. */
+const TRANSLATORS = [
+  { name:'Google', fn: async text => {
+      const u = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=vi&dt=t&q='
+                + encodeURIComponent(text);
+      const r = await fetchWithTimeout(u, 12000);
+      if (!r.ok) throw new Error('google ' + r.status);
+      const j = await r.json();
+      return j[0].map(x => x[0]).join('');
+  }},
+  { name:'Google (qua cầu nối)', fn: async text => {
+      const inner = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=vi&dt=t&q='
+                    + encodeURIComponent(text);
+      const r = await fetchWithTimeout(PROXIES[0](inner), 15000);
+      if (!r.ok) throw new Error('proxy ' + r.status);
+      const j = JSON.parse(await r.text());
+      return j[0].map(x => x[0]).join('');
+  }},
+  { name:'MyMemory', fn: async text => {
+      const u = 'https://api.mymemory.translated.net/get?langpair=en|vi&q='
+                + encodeURIComponent(text.slice(0, 480));
+      const r = await fetchWithTimeout(u, 12000);
+      if (!r.ok) throw new Error('mymemory ' + r.status);
+      const j = await r.json();
+      const t = j?.responseData?.translatedText;
+      if (!t || /MYMEMORY WARNING|INVALID/i.test(t)) throw new Error('mymemory từ chối');
+      return t;
+  }}
+];
+
+const TR_CONCURRENCY = 3;    // số bài dịch song song
+const TR_MAX_PASS    = 40;   // mỗi lượt dịch tối đa bấy nhiêu bài đang hiển thị
+const MAX_PER_SOURCE = 25;   // số bài lấy tối đa mỗi nguồn
+const FETCH_TIMEOUT  = 9000;   // nguồn nào quá chậm thì bỏ qua, đừng giữ chỗ của nguồn khác
+const CONCURRENCY    = 6;    // số nguồn tải song song (tránh bị proxy chặn vì gọi dồn)
+
+/* ============================================================
+   2. Logic
+   ============================================================ */
+const $ = s => document.querySelector(s);
+const state = {
+  sources: SOURCES.map(s => ({...s, group: s.group || 'dev', on: s.enabled !== false, status:'idle', count:0 })),
+  items: [], query:'', sort:'time', group:'all', expand:false, translate:false, loading:false,
+  read: new Set(), unreadOnly:false, persist:true, lazy:false, total:0, done:0, queue:null
+};
+
+/* ============================================================
+   2b. Ghi nhớ cấu hình (chỉ nằm trong trình duyệt của bạn)
+   ============================================================ */
+const STORE_KEY = 'tin-tuc-v1';
+const MAX_READ  = 4000;
+
+function storageOk(){
+  try{ localStorage.setItem('__t','1'); localStorage.removeItem('__t'); return true; }
+  catch(e){ return false; }
+}
+const HAS_STORAGE = storageOk();
+
+function snapshot(){
+  return {
+    v: 1,
+    theme: document.documentElement.getAttribute('data-theme') || 'light',
+    group: state.group, sort: state.sort, expand: state.expand,
+    translate: state.translate, unreadOnly: state.unreadOnly, lazy: state.lazy,
+    on:  state.sources.filter(s => s.on).map(s => s.id),
+    off: state.sources.filter(s => !s.on).map(s => s.id),
+    custom: state.sources.filter(s => s.custom)
+              .map(({id,name,url,group,color}) => ({id,name,url,group,color})),
+    read: [...state.read].slice(-MAX_READ)
+  };
+}
+
+function saveState(){
+  if (!state.persist || !HAS_STORAGE) return;
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(snapshot())); }catch(e){}
+}
+
+function applyConfig(cfg){
+  if (!cfg || typeof cfg !== 'object') return;
+  if (cfg.theme) document.documentElement.setAttribute('data-theme', cfg.theme);
+  if (typeof cfg.group === 'string' && GROUPS.some(g => g.id === cfg.group)) state.group = cfg.group;
+  if (typeof cfg.sort  === 'string') state.sort = cfg.sort;
+  state.expand     = !!cfg.expand;
+  state.translate  = !!cfg.translate;
+  state.unreadOnly = !!cfg.unreadOnly;
+  state.lazy       = !!cfg.lazy;
+
+  (cfg.custom || []).forEach(c => {
+    if (!c || !c.url || state.sources.some(s => s.id === c.id)) return;
+    state.sources.push({ id:c.id, name:c.name || c.url, url:c.url, color:c.color || '#8892a4',
+                         group:c.group || 'dev', custom:true, on:true, status:'idle', count:0 });
+  });
+
+  const on = new Set(cfg.on || []), off = new Set(cfg.off || []);
+  state.sources.forEach(s => {                 // nguồn mới thêm về sau giữ mặc định của nó
+    if (on.has(s.id))  s.on = true;
+    if (off.has(s.id)) s.on = false;
+  });
+  state.read = new Set((cfg.read || []).slice(-MAX_READ));
+}
+
+function loadState(){
+  if (!HAS_STORAGE) { state.persist = false; return; }
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return;
+    applyConfig(JSON.parse(raw));
+  }catch(e){}
+}
+
+function markRead(link){
+  if (state.read.has(link)) return;
+  state.read.add(link);
+  if (state.read.size > MAX_READ) state.read = new Set([...state.read].slice(-MAX_READ));
+  saveState();
+}
+
+const esc = s => (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const stripHtml = h => { const d=document.createElement('div'); d.innerHTML=h||''; return (d.textContent||'').replace(/\s+/g,' ').trim(); };
+
+function timeAgo(d){
+  if(!d) return '';
+  const s = (Date.now() - d.getTime())/1000;
+  if (s < 60)      return 'vừa xong';
+  if (s < 3600)    return Math.floor(s/60) + ' phút trước';
+  if (s < 86400)   return Math.floor(s/3600) + ' giờ trước';
+  if (s < 604800)  return Math.floor(s/86400) + ' ngày trước';
+  return d.toLocaleDateString('vi-VN');
+}
+
+/* ---------- dịch sang tiếng Việt ---------- */
+const VI_RE = /[ăâđêôơưĂÂĐÊÔƠƯàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụỳýỷỹỵ]/;
+const looksVietnamese = t => VI_RE.test(t || '');
+const canTranslate = i => !looksVietnamese(i.title);
+
+const trCache = new Map();
+let trProvider = 0, trPending = false, trFails = 0;
+
+async function translate(text){
+  if (trCache.has(text)) return trCache.get(text);
+  let lastErr;
+  for (let k = 0; k < TRANSLATORS.length; k++){
+    const idx = (trProvider + k) % TRANSLATORS.length;
+    try{
+      const out = await TRANSLATORS[idx].fn(text);
+      if (!out || !out.trim()) throw new Error('kết quả rỗng');
+      trProvider = idx;                       // nhớ dịch vụ vừa chạy được
+      trCache.set(text, out);
+      return out;
+    }catch(e){ lastErr = e; }
+  }
+  throw lastErr || new Error('không dịch được');
+}
+
+async function translateItem(i){
+  i.tState = 'loading';
+  try{
+    const out = await translate((i.title + '\n' + (i.summary || '')).trim());
+    const parts = out.split('\n').map(s => s.trim()).filter(Boolean);
+    i.tTitle   = parts[0] || i.title;
+    i.tSummary = parts.slice(1).join(' ');
+    i.tState   = 'done';
+    i.tShow    = true;
+    trFails    = 0;
+  }catch(e){
+    i.tState = 'err'; i.tErr = e.message || 'lỗi';
+    trFails++;
+  }
+}
+
+async function translateVisible(){
+  if (trPending || !state.translate || state.trBroken) return;
+  const todo = visibleItems()
+    .filter(i => canTranslate(i) && i.tState !== 'done' && i.tState !== 'loading' && i.tState !== 'err')
+    .slice(0, TR_MAX_PASS);
+  if (!todo.length) return;
+
+  trPending = true;
+  const queue = todo.slice();
+  const worker = async () => {
+    while (queue.length){
+      // hỏng liên tiếp 5 lần -> dừng hẳn, khỏi nã request vô ích
+      if (trFails >= 5){ queue.length = 0; state.trBroken = true; break; }
+      await translateItem(queue.shift());
+      scheduleRender();
+    }
+  };
+  await Promise.all(Array.from({length: Math.min(TR_CONCURRENCY, queue.length)}, worker));
+  trPending = false;
+  scheduleRender();
+  translateVisible();          // còn bài chưa dịch thì làm tiếp lượt sau
+}
+
+let renderTimer;
+function scheduleRender(){ clearTimeout(renderTimer); renderTimer = setTimeout(render, 250); }
+
+/* Google News bọc link thật trong link redirect -> lấy lại link gốc nếu có */
+function cleanLink(link, descHtml){
+  try{
+    const u = new URL(link);
+    if (u.hostname.includes('news.google.com') && descHtml){
+      const m = descHtml.match(/href="(https?:\/\/(?!news\.google)[^"]+)"/);
+      if (m) return m[1].replace(/&amp;/g,'&');
+    }
+  }catch(e){}
+  return link;
+}
+
+async function fetchWithTimeout(url, ms){
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), ms);
+  try { return await fetch(url, { signal:c.signal, cache:'no-store' }); }
+  finally { clearTimeout(t); }
+}
+
+let proxyIdx = 0;   // nhớ cầu nối vừa chạy được để lần sau dùng luôn, khỏi chờ timeout
+
+async function fetchFeed(src){
+  let lastErr;
+  for (let k = 0; k < PROXIES.length; k++){
+    const idx = (proxyIdx + k) % PROXIES.length;
+    const mk = PROXIES[idx];
+    try{
+      const r = await fetchWithTimeout(mk(src.url), FETCH_TIMEOUT);
+      if (!r.ok) { lastErr = new Error('HTTP ' + r.status); continue; }
+      const text = await r.text();
+      if (!/<(rss|feed|rdf:RDF)[\s>]/i.test(text)) { lastErr = new Error('Không phải RSS'); continue; }
+      const items = parseFeed(text, src);
+      if (items.length){ proxyIdx = idx; return items; }
+      lastErr = new Error('Feed rỗng');
+    }catch(e){ lastErr = e; }
+  }
+  throw lastErr || new Error('Không tải được');
+}
+
+/* Một số feed nhét entity HTML (&nbsp; &raquo; …) vốn không hợp lệ trong XML,
+   làm DOMParser chết. Nếu parse hỏng thì vá lại rồi thử lần nữa. */
+function parseXml(text){
+  let doc = new DOMParser().parseFromString(text, 'text/xml');
+  if (!doc.querySelector('parsererror')) return doc;
+  const fixed = text.replace(/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)([a-zA-Z][a-zA-Z0-9]{1,10});/g,
+                             (_, n) => '&amp;' + n + ';');
+  doc = new DOMParser().parseFromString(fixed, 'text/xml');
+  return doc.querySelector('parsererror') ? null : doc;
+}
+
+function parseFeed(xmlText, src){
+  const doc = parseXml(xmlText);
+  if (!doc) return [];
+  const nodes = [...doc.querySelectorAll('item, entry')].slice(0, MAX_PER_SOURCE);
+  const pick = (n, tag) => n.getElementsByTagName(tag)[0]?.textContent?.trim() || '';
+
+  return nodes.map(n => {
+    let link = pick(n,'link');
+    if (!link){
+      const a = [...n.getElementsByTagName('link')].find(l => l.getAttribute('rel') !== 'self');
+      link = a?.getAttribute('href') || '';
+    }
+    // nhiều feed (WordPress, DEV.to…) đã kèm sẵn toàn văn -> đọc luôn, khỏi tải trang gốc
+    const bodies = ['content:encoded','content','description','summary'].map(t => pick(n, t));
+    const fullHtml = bodies.reduce((a, b) => (b || '').length > (a || '').length ? b : a, '');
+    const descRaw = pick(n,'description') || pick(n,'summary') || pick(n,'content') || pick(n,'content:encoded');
+    const dateStr = pick(n,'pubDate') || pick(n,'published') || pick(n,'updated') || pick(n,'dc:date');
+    const d = dateStr ? new Date(dateStr) : null;
+    let title = stripHtml(pick(n,'title'));
+    // Google News gắn " - Tên site" vào cuối tiêu đề
+    if (src.url.includes('news.google.com')) title = title.replace(/\s+-\s+[^-]{2,30}$/, '');
+    return {
+      title, link: cleanLink(link, descRaw),
+      summary: stripHtml(descRaw).slice(0, 320),
+      fullHtml,
+      date: (d && !isNaN(d)) ? d : null,
+      srcId: src.id, srcName: src.name, color: src.color
+    };
+  }).filter(i => i.title && i.link);
+}
+
+async function loadAll(){
+  if (state.loading) return;
+  state.loading = true;
+  state.items = [];
+  state.sources.forEach(s => { if (s.on){ s.status='idle'; s.count=0; } else s.status='off'; });
+
+  // tải theo lô để không gọi dồn hàng chục request vào cùng một proxy;
+  // nguồn thuộc chuyên mục đang xem được ưu tiên lấy trước cho nhanh thấy bài
+  // chế độ tải nhẹ: chỉ lấy nguồn của chuyên mục đang xem, các nhóm khác để dành
+  const queue = state.sources.filter(s => s.on && (!state.lazy || state.group === 'all' || inGroup(s)));
+  state.queue = queue; state.total = queue.length; state.done = 0;
+  sortQueue();
+  renderChips(); renderSkeleton();
+
+  const worker = async () => {
+    while (queue.length){
+      const s = queue.shift();
+      s.status = 'loading';
+      try{
+        const items = await fetchFeed(s);
+        s.status='ok'; s.count=items.length; s.error='';
+        state.items.push(...items);
+      }catch(e){
+        s.status='err'; s.count=0; s.error = e.message || 'lỗi';
+      }
+      state.done++;
+      dedupe();
+      renderChips(); render();
+    }
+  };
+  await Promise.all(Array.from({length: Math.min(CONCURRENCY, queue.length)}, worker));
+
+  dedupe();
+  state.loading = false;
+  state.queue = null;
+  renderChips(); render();
+}
+
+/* Đưa nguồn của chuyên mục đang xem lên đầu hàng đợi — gọi lại được cả khi
+   đang tải dở, để bấm sang tab khác là tab đó được ưu tiên ngay. */
+function sortQueue(){
+  if (!state.queue) return;
+  state.queue.sort((a, b) => (inGroup(b) ? 1 : 0) - (inGroup(a) ? 1 : 0));
+}
+
+/* Bỏ bài trùng link. Nếu một bài xuất hiện ở nhiều feed (VD Quanta bản chung và
+   Quanta bản Toán học) thì giữ 1 bản nhưng nhớ luôn các nguồn kia, để bài vẫn
+   hiện khi lọc theo chuyên mục của nguồn đó. */
+function dedupe(){
+  const map = new Map();
+  for (const i of state.items){
+    const old = map.get(i.link);
+    if (!old){ i.alt = i.alt || []; map.set(i.link, i); continue; }
+    if (old.srcId !== i.srcId && !old.alt.includes(i.srcId)) old.alt.push(i.srcId);
+  }
+  state.items = [...map.values()];
+}
+
+const inGroup = s => state.group === 'all' || s.group === state.group;
+
+function visibleItems(){
+  const q = state.query.trim().toLowerCase();
+  const onIds = new Set(state.sources.filter(s => s.on && s.status !== 'err' && inGroup(s)).map(s => s.id));
+  let out = state.items.filter(i => onIds.has(i.srcId) || (i.alt||[]).some(id => onIds.has(id)));
+  if (state.unreadOnly) out = out.filter(i => !state.read.has(i.link));
+  if (q) out = out.filter(i =>
+    (i.title + ' ' + i.summary + ' ' + (i.tTitle||'') + ' ' + (i.tSummary||'')).toLowerCase().includes(q));
+  const byTime = (a,b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0);
+  if (state.sort === 'time')   out.sort(byTime);
+  if (state.sort === 'title')  out.sort((a,b) => a.title.localeCompare(b.title,'vi'));
+  if (state.sort === 'source') out.sort((a,b) => a.srcName.localeCompare(b.srcName,'vi') || byTime(a,b));
+  return out;
+}
+
+function renderTabs(){
+  // đếm theo bài thật (đã bỏ trùng), không cộng dồn số của từng nguồn
+  const onIds = new Set(state.sources.filter(s => s.on && s.status !== 'err').map(s => s.id));
+  const groupOf = id => (state.sources.find(s => s.id === id) || {}).group;
+  const c = {};
+  for (const i of state.items){
+    const ids = [i.srcId, ...(i.alt || [])].filter(id => onIds.has(id));
+    if (!ids.length) continue;
+    c.all = (c.all || 0) + 1;
+    new Set(ids.map(groupOf).filter(Boolean)).forEach(g => c[g] = (c[g] || 0) + 1);
+  }
+  $('#tabs').innerHTML = GROUPS.map(g =>
+    `<button class="tab" role="tab" data-g="${g.id}" aria-selected="${state.group===g.id}">
+       ${esc(g.name)}<span class="n">${c[g.id] || ''}</span></button>`).join('');
+}
+
+function renderChips(){
+  renderTabs();
+  const list   = state.sources.filter(inGroup);
+  const shown  = state.expand ? list : list.filter(s => s.on);
+  const hidden = list.length - shown.length;
+
+  let html = shown.map(s => {
+    const label = s.status==='loading' ? '…' : (s.status==='err' ? '⚠' : (s.on ? s.count : ''));
+    return `<button class="chip ${s.status==='err'?'err':''}" data-id="${s.id}" aria-pressed="${s.on}"
+              title="${s.status==='err' ? 'Không tải được: '+esc(s.error||'') : esc(s.url)}">
+              <span class="sq" style="background:${s.color}"></span>${esc(s.name)}
+              <span class="n">${label}</span></button>`;
+  }).join('');
+
+  if (!state.expand && hidden > 0)
+    html += `<button class="chip" id="expand" style="border-style:dashed">+ ${hidden} nguồn khác</button>`;
+  if (state.expand){
+    if (hidden > 0 || list.some(s=>!s.on))
+      html += `<button class="chip" id="allOn" style="border-style:dashed">Bật tất cả</button>`;
+    html += `<button class="chip" id="collapse" style="border-style:dashed">Thu gọn</button>`;
+  }
+  $('#chips').innerHTML = html;
+}
+
+const skeletonHtml = (n=6) => Array.from({length:n}, () =>
+  `<div class="skel"><div class="l" style="width:65%;height:14px"></div><div class="l" style="width:92%"></div><div class="l" style="width:40%"></div></div>`
+).join('');
+function renderSkeleton(){ $('#list').innerHTML = skeletonHtml(); }
+
+function render(){
+  const items = visibleItems();
+  const errs = state.sources.filter(s => s.on && s.status==='err' && inGroup(s));
+  const n = $('#notice');
+  const msgs = [];
+  if (errs.length)
+    msgs.push('⚠ Không tải được: <b>' + errs.map(e => esc(e.name)).join(', ') +
+      '</b>. Thường do cầu nối CORS công cộng bị nghẽn — bấm <b>Làm mới</b> sau ít phút.');
+  if (state.trBroken)
+    msgs.push('⚠ Dịch vụ dịch miễn phí đang chặn hoặc nghẽn nên đã tạm dừng dịch — bài vẫn hiện nguyên văn. ' +
+              'Tắt rồi bật lại nút <b>🌐 Dịch</b> để thử lại.');
+  if (msgs.length){ n.hidden = false; n.innerHTML = msgs.join('<br>'); } else n.hidden = true;
+
+  $('#info').textContent = state.loading
+    ? `Đang tải ${state.done}/${state.total} nguồn… (${items.length} bài)`
+    : `${items.length} bài từ ${state.sources.filter(s=>s.on&&s.status==='ok'&&inGroup(s)).length} nguồn`;
+
+  // Chưa có bài cho chuyên mục đang xem: phải xoá danh sách cũ đi,
+  // nếu không sẽ vẫn thấy bài của tab trước và tưởng là bấm tab không ăn.
+  if (!items.length){
+    const waiting = state.sources.some(s => s.on && inGroup(s) &&
+      (s.status === 'loading' || (state.loading && s.status === 'idle')));
+    $('#list').innerHTML = waiting
+      ? skeletonHtml(4)
+      : `<div class="empty">Chưa có bài nào khớp.<br>Thử bỏ từ khoá tìm kiếm hoặc bật thêm nguồn.</div>`;
+    return;
+  }
+
+  $('#list').innerHTML = items.map(i => {
+    const done  = i.tState === 'done' && i.tShow;
+    const title = done ? i.tTitle : i.title;
+    const sum   = done ? (i.tSummary || i.summary) : i.summary;
+    let trUi = '';
+    if (done)                        trUi = `<span class="sep">•</span><span class="tbadge tbtn" role="button" data-o="${esc(i.link)}" title="Bấm để xem lại bản gốc">đã dịch</span>`;
+    else if (i.tState === 'loading') trUi = `<span class="sep">•</span><span>đang dịch…</span>`;
+    else if (i.tState === 'err')     trUi = `<span class="sep">•</span><span class="tbtn" role="button" data-k="${esc(i.link)}" title="${esc(i.tErr||'')}">dịch lỗi — thử lại</span>`;
+    else if (canTranslate(i))        trUi = `<span class="sep">•</span><span class="tbtn" role="button" data-k="${esc(i.link)}">Dịch</span>`;
+
+    const isRead = state.read.has(i.link);
+    return `
+    <a class="card${isRead ? ' read' : ''}" href="${esc(i.link)}" data-k="${esc(i.link)}"
+       target="_blank" rel="noopener noreferrer">
+      <article>
+        <h2>${esc(title)}</h2>
+        ${done ? `<p class="orig">${esc(i.title)}</p>` : ''}
+        ${sum ? `<p class="sum">${esc(sum)}</p>` : ''}
+        <div class="foot">
+          <span class="src" style="color:${i.color}"><span class="sq" style="background:${i.color}"></span>${esc(i.srcName)}</span>
+          <span class="sep">•</span><span>${esc(timeAgo(i.date))}</span>
+          <span class="sep">•</span><span>${esc(new URL(i.link).hostname.replace(/^www\./,''))}</span>
+          ${trUi}
+        </div>
+      </article>
+    </a>`;
+  }).join('');
+
+  if (state.translate) translateVisible();
+}
+
+/* ============================================================
+   Khung đọc nhanh: bóc nội dung bài, bỏ quảng cáo / script / menu
+   ============================================================ */
+
+/* Chỉ những thẻ này được giữ lại. Mọi thẻ khác bị bỏ vỏ (giữ nội dung bên trong),
+   riêng nhóm DROP thì xoá sạch cả nội dung. Thuộc tính KHÔNG được sao chép —
+   chỉ href/src/alt được đặt lại thủ công, nên script, onclick, style… không lọt qua. */
+const KEEP = new Set(['P','BR','HR','H1','H2','H3','H4','H5','H6','UL','OL','LI','BLOCKQUOTE',
+  'PRE','CODE','EM','STRONG','B','I','U','S','A','IMG','FIGURE','FIGCAPTION',
+  'TABLE','THEAD','TBODY','TFOOT','TR','TD','TH','SMALL','SUP','SUB','DL','DT','DD','MARK']);
+const DROP = new Set(['SCRIPT','STYLE','NOSCRIPT','IFRAME','FRAME','OBJECT','EMBED','APPLET',
+  'FORM','INPUT','BUTTON','SELECT','TEXTAREA','SVG','CANVAS','AUDIO','VIDEO','TEMPLATE',
+  'LINK','META','BASE','NAV','HEADER','FOOTER','ASIDE','DIALOG']);
+
+const absUrl = (u, base) => { try{ return new URL(u, base).href; }catch(e){ return ''; } };
+
+function sanitizeInto(src, out, base){
+  for (const node of src.childNodes){
+    if (node.nodeType === 3){ out.appendChild(document.createTextNode(node.nodeValue)); continue; }
+    if (node.nodeType !== 1) continue;
+    const tag = node.tagName.toUpperCase();
+    if (DROP.has(tag)) continue;
+    if (!KEEP.has(tag)){ sanitizeInto(node, out, base); continue; }   // div/span… -> bỏ vỏ
+
+    if (tag === 'IMG'){
+      const s = absUrl(node.getAttribute('src') || node.getAttribute('data-src') || '', base);
+      if (!/^https?:/i.test(s)) continue;
+      const img = document.createElement('img');
+      img.setAttribute('src', s); img.setAttribute('loading','lazy');
+      img.setAttribute('referrerpolicy','no-referrer');
+      const alt = node.getAttribute('alt'); if (alt) img.setAttribute('alt', alt);
+      out.appendChild(img); continue;
+    }
+    const el = document.createElement(tag.toLowerCase());
+    if (tag === 'A'){
+      const h = absUrl(node.getAttribute('href') || '', base);
+      if (/^https?:/i.test(h)){
+        el.setAttribute('href', h); el.setAttribute('target','_blank');
+        el.setAttribute('rel','noopener noreferrer');
+      }
+    }
+    sanitizeInto(node, el, base);
+    if (el.childNodes.length || tag === 'BR' || tag === 'HR') out.appendChild(el);
+  }
+}
+
+const textLen = el => [...el.querySelectorAll('p,li')].reduce((a,n) => a + n.textContent.trim().length, 0);
+
+function extractArticle(doc){
+  doc.querySelectorAll(
+    'script,style,noscript,iframe,nav,header,footer,aside,form,svg,' +
+    '[class*="advert"],[class*="banner"],[class*="sponsor"],[class*="related"],[class*="share"],' +
+    '[class*="social"],[class*="comment"],[class*="newsletter"],[class*="subscribe"],[class*="popup"],' +
+    '[class*="breadcrumb"],[class*="sidebar"],[id*="comment"],[id*="sidebar"],[role="navigation"]'
+  ).forEach(n => n.remove());
+
+  const CAND = ['article','[itemprop="articleBody"]','.article-body','.article-content','.articleBody',
+    '.post-content','.entry-content','.post-body','.content-detail','.detail-content','.singular-content',
+    '#content-detail','.td-post-content','.crayons-article__main','main'];
+  let best = null, score = 0;
+  const consider = el => { const s = textLen(el); if (s > score){ score = s; best = el; } };
+  CAND.forEach(sel => doc.querySelectorAll(sel).forEach(consider));
+  if (score < 500) doc.querySelectorAll('div,section,td').forEach(consider);
+  return score >= 220 ? best : null;
+}
+
+async function fetchArticleHtml(url){
+  let lastErr;
+  for (let k = 0; k < PROXIES.length; k++){
+    const idx = (proxyIdx + k) % PROXIES.length;
+    try{
+      const r = await fetchWithTimeout(PROXIES[idx](url), 14000);
+      if (!r.ok){ lastErr = new Error('HTTP ' + r.status); continue; }
+      const t = await r.text();
+      if (t && t.length > 500){ proxyIdx = idx; return t; }
+      lastErr = new Error('trang rỗng');
+    }catch(e){ lastErr = e; }
+  }
+  throw lastErr || new Error('không tải được trang');
+}
+
+let rdItem = null;
+
+function openReader(item){
+  rdItem = item;
+  markRead(item.link);
+  const host = (() => { try{ return new URL(item.link).hostname.replace(/^www\./,''); }catch(e){ return ''; } })();
+  $('#rdWho').innerHTML = `<span class="sq" style="width:8px;height:8px;border-radius:2px;background:${item.color}"></span>
+                           <b>${esc(item.srcName)}</b> · ${esc(host)}`;
+  $('#rdOpen').href = item.link;
+  $('#rdWrap').hidden = false;
+  document.body.style.overflow = 'hidden';
+  $('#rdBody').innerHTML = `<h1 class="t">${esc(item.tShow && item.tTitle ? item.tTitle : item.title)}</h1>
+    <p class="meta">${esc(item.srcName)} · ${esc(timeAgo(item.date))}</p>` + skeletonHtml(3);
+  loadReaderContent(item);
+  render();
+}
+
+async function loadReaderContent(item){
+  const body = $('#rdBody');
+  const head = `<h1 class="t">${esc(item.tShow && item.tTitle ? item.tTitle : item.title)}</h1>
+    ${item.tShow && item.tTitle ? `<p class="tr">${esc(item.title)}</p>` : ''}
+    <p class="meta">${esc(item.srcName)} · ${esc(timeAgo(item.date))}</p>`;
+
+  const paint = frag => {
+    if (rdItem !== item) return;                       // người dùng đã mở bài khác
+    body.innerHTML = head;
+    body.appendChild(frag);
+  };
+
+  // 1) feed đã kèm toàn văn thì dùng luôn
+  const holder = document.createElement('div');
+  if (item.fullHtml && stripHtml(item.fullHtml).length > 900){
+    const doc = new DOMParser().parseFromString(item.fullHtml, 'text/html');
+    sanitizeInto(doc.body, holder, item.link);
+    if (holder.textContent.trim().length > 400){ paint(holder); return; }
+  }
+
+  // 2) không thì tải trang gốc rồi bóc phần thân bài
+  try{
+    const html = await fetchArticleHtml(item.link);
+    if (rdItem !== item) return;
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const baseHref = doc.querySelector('base[href]')?.getAttribute('href') || item.link;
+    const main = extractArticle(doc);
+    if (!main) throw new Error('không tìm thấy phần thân bài');
+    const out = document.createElement('div');
+    sanitizeInto(main, out, absUrl(baseHref, item.link) || item.link);
+    if (out.textContent.trim().length < 250) throw new Error('nội dung quá ngắn');
+    paint(out);
+  }catch(e){
+    if (rdItem !== item) return;
+    const fb = document.createElement('div');
+    fb.innerHTML = `<p>${esc(item.summary || '')}</p>
+      <div class="rd-note">Không bóc được nội dung bài này (${esc(e.message || 'lỗi')}).
+      Một số trang chặn đọc từ nơi khác. Bấm <b>Trang gốc ↗</b> để mở bằng trình duyệt.</div>`;
+    paint(fb);
+  }
+}
+
+function closeReader(){
+  rdItem = null;
+  $('#rdWrap').hidden = true;
+  document.body.style.overflow = '';
+  $('#rdBody').innerHTML = '';
+}
+
+/* dịch nguyên bài trong khung đọc */
+let rdTrBusy = false;
+async function translateReader(){
+  if (rdTrBusy || !rdItem) return;
+  const item = rdItem;
+  const blocks = [...$('#rdBody').querySelectorAll('p,h2,h3,h4,li,blockquote')]
+    .filter(el => !el.classList.contains('meta') && !el.classList.contains('tr')
+                  && el.textContent.trim().length > 12 && !looksVietnamese(el.textContent))
+    .slice(0, 80);
+  if (!blocks.length){ $('#rdTr').textContent = '🌐 Không cần dịch'; return; }
+
+  rdTrBusy = true; $('#rdTr').textContent = `🌐 Đang dịch 0/${blocks.length}`;
+  let done = 0;
+  const queue = blocks.slice();
+  const worker = async () => {
+    while (queue.length){
+      const el = queue.shift();
+      try{ el.textContent = await translate(el.textContent.trim()); }catch(e){}
+      done++;
+      if (rdItem === item) $('#rdTr').textContent = `🌐 Đang dịch ${done}/${blocks.length}`;
+    }
+  };
+  await Promise.all(Array.from({length: TR_CONCURRENCY}, worker));
+  rdTrBusy = false;
+  if (rdItem === item) $('#rdTr').textContent = '🌐 Đã dịch';
+}
+
+/* ---------- sự kiện ---------- */
+$('#tabs').addEventListener('click', e => {
+  const t = e.target.closest('.tab'); if (!t) return;
+  state.group = t.dataset.g;
+  sortQueue();                     // đang tải dở thì ưu tiên nguồn của tab vừa bấm
+  ensureGroupLoaded();             // chế độ tải nhẹ: giờ mới lấy nguồn của tab này
+  renderChips(); render(); saveState();
+  window.scrollTo({ top:0, behavior:'smooth' });
+});
+
+$('#chips').addEventListener('click', e => {
+  if (e.target.closest('#expand'))   { state.expand = true;  renderChips(); saveState(); return; }
+  if (e.target.closest('#collapse')) { state.expand = false; renderChips(); saveState(); return; }
+  const all = e.target.closest('#allOn');
+  if (all){
+    const todo = state.sources.filter(s => inGroup(s) && !s.on);
+    todo.forEach(s => s.on = true);
+    renderChips(); render(); saveState();
+    todo.forEach(s => { if (s.status !== 'ok') loadOne(s); });
+    return;
+  }
+  const c = e.target.closest('.chip'); if (!c || !c.dataset.id) return;
+  const s = state.sources.find(x => x.id === c.dataset.id); if (!s) return;
+  s.on = !s.on;
+  saveState();
+  if (s.on && s.status !== 'ok'){ loadOne(s); } else { renderChips(); render(); }
+});
+
+/* Chế độ tải nhẹ: nguồn của chuyên mục vừa mở mà chưa lấy lần nào thì lấy ngay bây giờ. */
+function ensureGroupLoaded(){
+  if (!state.lazy || state.loading) return;
+  state.sources.filter(s => s.on && inGroup(s) && s.status === 'idle').forEach(loadOne);
+}
+
+async function loadOne(s){
+  s.status='loading'; renderChips();
+  try{
+    const items = await fetchFeed(s);
+    s.status='ok'; s.count=items.length;
+    state.items.push(...items);
+    dedupe();
+  }catch(e){ s.status='err'; s.error = e.message; }
+  renderChips(); render();
+}
+
+$('#list').addEventListener('click', async e => {
+  /* nút "Dịch" trên từng bài (khi chưa bật dịch tự động) */
+  const b = e.target.closest('.tbtn');
+  if (b){
+    e.preventDefault(); e.stopPropagation();
+    if (b.dataset.o){                                  // đang xem bản dịch -> về bản gốc
+      const i = state.items.find(x => x.link === b.dataset.o);
+      if (i){ i.tShow = false; render(); }
+      return;
+    }
+    const i = state.items.find(x => x.link === b.dataset.k); if (!i) return;
+    if (i.tState === 'done'){ i.tShow = true; render(); return; } // đã có sẵn bản dịch
+    b.textContent = 'đang dịch…';
+    await translateItem(i);
+    render();
+    return;
+  }
+
+  /* bấm vào bài -> mở khung đọc. Ctrl/Cmd/giữa chuột vẫn mở tab mới như thường */
+  const card = e.target.closest('a.card'); if (!card) return;
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0){
+    markRead(card.dataset.k); render(); return;
+  }
+  e.preventDefault();
+  const item = state.items.find(x => x.link === card.dataset.k);
+  if (item) openReader(item);
+});
+
+/* mở bằng chuột giữa cũng tính là đã đọc */
+$('#list').addEventListener('auxclick', e => {
+  const card = e.target.closest('a.card');
+  if (card && e.button === 1){ markRead(card.dataset.k); render(); }
+});
+
+/* ---- khung đọc ---- */
+$('#rdClose').addEventListener('click', closeReader);
+$('#rdBack').addEventListener('click', closeReader);
+$('#rdTr').addEventListener('click', translateReader);
+$('#rdOpen').addEventListener('click', () => { if (rdItem) markRead(rdItem.link); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !$('#rdWrap').hidden) closeReader();
+});
+
+/* ---- chỉ bài chưa đọc ---- */
+$('#unreadBtn').addEventListener('click', () => {
+  state.unreadOnly = !state.unreadOnly;
+  $('#unreadBtn').setAttribute('aria-pressed', state.unreadOnly);
+  saveState(); render();
+});
+
+/* ---- hộp cấu hình ---- */
+function cfgStatus(){
+  $('#cfgStat').innerHTML = HAS_STORAGE
+    ? `Đang nhớ <b>${state.read.size}</b> bài đã đọc và
+       <b>${state.sources.filter(s=>s.on).length}</b> nguồn đang bật.`
+    : '⚠ Trình duyệt đang chặn lưu trữ cục bộ (hay gặp khi mở file ở chế độ riêng tư). ' +
+      'Cấu hình sẽ mất khi đóng trang — dùng nút xuất/nhập file bên dưới để giữ lại.';
+}
+$('#cfgBtn').addEventListener('click', () => {
+  $('#cfgPersist').checked = state.persist && HAS_STORAGE;
+  $('#cfgPersist').disabled = !HAS_STORAGE;
+  $('#cfgLazy').checked = state.lazy;
+  cfgStatus(); $('#cfgDlg').showModal();
+});
+$('#cfgLazy').addEventListener('change', e => {
+  state.lazy = e.target.checked;
+  saveState();
+  if (!state.lazy) ensureAllLoaded(); else ensureGroupLoaded();
+});
+function ensureAllLoaded(){
+  if (state.loading) return;
+  state.sources.filter(s => s.on && s.status === 'idle').forEach(loadOne);
+}
+$('#cfgClose').addEventListener('click', () => $('#cfgDlg').close());
+$('#cfgPersist').addEventListener('change', e => {
+  state.persist = e.target.checked;
+  if (state.persist) saveState();
+  else { try{ localStorage.removeItem(STORE_KEY); }catch(err){} }
+});
+$('#cfgExport').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(snapshot(), null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'tin-tuc-cau-hinh.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+});
+$('#cfgImport').addEventListener('click', () => $('#cfgFile').click());
+$('#cfgFile').addEventListener('change', async e => {
+  const f = e.target.files?.[0]; if (!f) return;
+  try{
+    applyConfig(JSON.parse(await f.text()));
+    saveState(); syncUi(); cfgStatus(); loadAll();
+  }catch(err){ alert('File cấu hình không đọc được: ' + err.message); }
+  e.target.value = '';
+});
+$('#cfgClearRead').addEventListener('click', () => {
+  state.read = new Set(); saveState(); cfgStatus(); render();
+});
+$('#cfgReset').addEventListener('click', () => {
+  try{ localStorage.removeItem(STORE_KEY); }catch(e){}
+  location.reload();
+});
+
+/* đồng bộ nút bấm trên thanh công cụ với cấu hình đang dùng */
+function syncUi(){
+  $('#sort').value = state.sort;
+  $('#unreadBtn').setAttribute('aria-pressed', state.unreadOnly);
+  const b = $('#trBtn');
+  b.classList.toggle('primary', state.translate);
+  b.textContent = state.translate ? '🌐 Đang dịch' : '🌐 Dịch';
+}
+
+/* bật/tắt dịch tự động toàn bộ */
+$('#trBtn').addEventListener('click', () => {
+  state.translate = !state.translate;
+  const b = $('#trBtn');
+  b.classList.toggle('primary', state.translate);
+  b.textContent = state.translate ? '🌐 Đang dịch' : '🌐 Dịch';
+  b.title = state.translate
+    ? 'Đang tự động dịch bài tiếng nước ngoài — bấm để tắt'
+    : 'Tự động dịch các bài tiếng nước ngoài sang tiếng Việt';
+  if (state.translate){
+    state.trBroken = false; trFails = 0;
+    state.items.forEach(i => {
+      if (i.tState === 'err') i.tState = undefined;    // thử lại các bài từng lỗi
+      if (i.tState === 'done') i.tShow = true;         // bản dịch cũ đã có sẵn -> hiện lại ngay
+    });
+    translateVisible();
+  } else {
+    state.items.forEach(i => i.tShow = false);         // tắt: quay về nguyên văn (vẫn giữ bản dịch trong bộ nhớ)
+  }
+  saveState(); render();
+});
+
+let t; $('#q').addEventListener('input', e => {
+  clearTimeout(t); t = setTimeout(() => { state.query = e.target.value; render(); }, 150);
+});
+$('#sort').addEventListener('change', e => { state.sort = e.target.value; render(); saveState(); });
+$('#reload').addEventListener('click', loadAll);
+
+$('#themeBtn').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  document.documentElement.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+  saveState();
+});
+
+$('#addBtn').addEventListener('click', () => $('#addDlg').showModal());
+$('#addDlg').addEventListener('close', () => {
+  if ($('#addDlg').returnValue !== 'ok') return;
+  const name = $('#nName').value.trim(), url = $('#nUrl').value.trim();
+  if (!name || !url) return;
+  const s = { id:'u'+Date.now(), name, url, color:'#8892a4',
+              group: state.group === 'all' ? 'dev' : state.group,
+              custom:true, on:true, status:'idle', count:0 };
+  state.sources.push(s); $('#nName').value=''; $('#nUrl').value='';
+  renderChips(); saveState(); loadOne(s);
+});
+
+/* ---------- khởi động ---------- */
+const savedRaw = HAS_STORAGE ? (() => { try{ return localStorage.getItem(STORE_KEY); }catch(e){ return null; } })() : null;
+if (!savedRaw && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches)
+  document.documentElement.setAttribute('data-theme','dark');   // chưa có cấu hình -> theo hệ thống
+loadState();
+syncUi();
+if (state.translate) $('#trBtn').title = 'Đang tự động dịch bài tiếng nước ngoài — bấm để tắt';
+loadAll();
+</script>
+</body>
+</html>
