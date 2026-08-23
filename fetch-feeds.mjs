@@ -198,7 +198,7 @@ function readPrevContent() {
   const prev = new Map();
   if (!existsSync(CONTENT_DIR)) return prev;
   for (const f of readdirSync(CONTENT_DIR)) {
-    if (!f.endsWith('.json')) continue;
+    if (!f.endsWith('.json') || f.startsWith('_')) continue;   // _links.json không phải nội dung bài
     try {
       const obj = JSON.parse(readFileSync(`${CONTENT_DIR}/${f}`, 'utf8'));
       for (const [link, html] of Object.entries(obj)) prev.set(link, html);
@@ -265,6 +265,72 @@ async function resolveGoogleLink(url) {
   return null;
 }
 
+/* ---------- đổi link Google News bằng trình duyệt thật ----------
+   Trang chuyển hướng của Google chỉ là khung rỗng chờ JavaScript, nên gọi bằng lệnh
+   thường không moi ra được địa chỉ báo. Nạp bằng Chrome không giao diện thì trình
+   duyệt tự chạy JS và đi tới đúng bài — đọc địa chỉ cuối cùng là xong.
+   Kết quả được nhớ lại ở content/_links.json nên mỗi link chỉ phải mở một lần duy nhất. */
+const RESOLVE_BROWSER = process.env.RESOLVE_BROWSER !== '0';
+const RESOLVE_MAX     = Number(process.env.RESOLVE_MAX || 200);
+const RESOLVE_CONC    = 3;
+const LINKMAP_FILE    = `${CONTENT_DIR}/_links.json`;
+
+function readLinkMap() {
+  try { return new Map(Object.entries(JSON.parse(readFileSync(LINKMAP_FILE, 'utf8')))); }
+  catch { return new Map(); }
+}
+
+async function openBrowser() {
+  let chromium;
+  for (const mod of ['playwright-core', 'playwright']) {
+    try { ({ chromium } = await import(mod)); break; } catch {}
+  }
+  if (!chromium) { console.log('  (thiếu playwright-core — bỏ qua bước mở bằng trình duyệt)'); return null; }
+
+  const tries = [];
+  if (process.env.CHROME_PATH) tries.push({ executablePath: process.env.CHROME_PATH });
+  tries.push({ channel: 'chrome' }, { channel: 'chromium' }, {});
+  for (const opt of tries) {
+    try { return await chromium.launch({ headless: true, ...opt }); } catch {}
+  }
+  console.log('  (không mở được Chrome trên máy chạy — bỏ qua bước này)');
+  return null;
+}
+
+async function resolveLinksWithBrowser(links) {
+  const out = new Map();
+  if (!RESOLVE_BROWSER || !links.length) return out;
+  const browser = await openBrowser();
+  if (!browser) return out;
+
+  const ctx = await browser.newContext({ userAgent: BROWSER_UA, locale: 'vi-VN' });
+  // chặn ảnh/CSS/phông cho nhẹ, chỉ cần điều hướng chứ không cần hiển thị
+  await ctx.route('**/*', r => {
+    const t = r.request().resourceType();
+    return (t === 'image' || t === 'stylesheet' || t === 'font' || t === 'media') ? r.abort() : r.continue();
+  });
+
+  const queue = links.slice(0, RESOLVE_MAX);
+  const worker = async () => {
+    const page = await ctx.newPage();
+    while (queue.length) {
+      const url = queue.shift();
+      try {
+        await page.goto(url, { waitUntil: 'commit', timeout: 20000 });
+        if (GNEWS_RE.test(page.url())) {
+          await page.waitForURL(u => !GNEWS_RE.test(String(u)), { timeout: 12000 }).catch(() => {});
+        }
+        const fin = page.url();
+        if (fin && !GNEWS_RE.test(fin)) out.set(url, unwrapRedirect(fin));
+      } catch {}
+    }
+    await page.close().catch(() => {});
+  };
+  await Promise.all(Array.from({ length: Math.min(RESOLVE_CONC, queue.length) }, worker));
+  await browser.close().catch(() => {});
+  return out;
+}
+
 async function extractMissing(items, prev) {
   const todo = [];
   let reused = 0;
@@ -298,17 +364,43 @@ async function extractMissing(items, prev) {
     (todo.length > queue.length ? ` (còn ${todo.length - queue.length} bài để lần sau)` : '')
   );
 
-  let ok = 0, fail = 0, gnTried = 0, gnOk = 0;
+  /* Bước 1: đổi hết link Google News sang link báo gốc.
+     Ưu tiên bảng đã nhớ, còn lại mở bằng trình duyệt, ai không xong thì thử cách gọi thường. */
+  const linkMap = readLinkMap();
+  const canDoi = [...new Set(items.filter(i => GNEWS_RE.test(i.l)).map(i => i.l))];
+  const chuaBiet = canDoi.filter(u => !linkMap.has(u));
+  let gnTried = canDoi.length, gnOk = 0;
+
+  if (chuaBiet.length) {
+    console.log(`  đang mở ${chuaBiet.length} link Google News bằng trình duyệt…`);
+    const moi = await resolveLinksWithBrowser(chuaBiet);
+    for (const [k, v] of moi) linkMap.set(k, v);
+
+    const conLai = chuaBiet.filter(u => !linkMap.has(u)).slice(0, 40);
+    for (const u of conLai) {                    // vớt vát bằng cách gọi thường
+      try { const r = await resolveGoogleLink(u); if (r) linkMap.set(u, r); } catch {}
+    }
+  }
+  for (const it of items) {                      // áp cho MỌI bài, kể cả bài ngoài hạn mức bóc
+    const real = linkMap.get(it.l);
+    if (real) { it.l = real; gnOk++; }
+  }
+
+  /* Sau khi đổi link mới đối chiếu lại kho cũ: bài đã bóc lần trước được lưu theo
+     link báo gốc, mà lúc đầu bài còn mang link Google nên tra không ra. */
+  for (let k = queue.length - 1; k >= 0; k--) {
+    const cu = prev.get(queue[k].l);
+    if (cu) { queue[k]._full = cu; reused++; queue.splice(k, 1); }
+  }
+
+  let ok = 0, fail = 0;
   const byError = {};
   const worker = async () => {
     while (queue.length) {
       const it = queue.shift();
       try {
-        if (GNEWS_RE.test(it.l)) {
-          gnTried++;
-          const real = await resolveGoogleLink(it.l);
-          if (real) { it.l = real; gnOk++; }
-          else { fail++; byError['google-link'] = (byError['google-link'] || 0) + 1; continue; }
+        if (GNEWS_RE.test(it.l)) {               // vẫn chưa đổi được -> bỏ, khỏi tải phí
+          fail++; byError['google-link'] = (byError['google-link'] || 0) + 1; continue;
         }
         const content = readable(await fetchPage(it.l), it.l);
         if (content) { it._full = content; ok++; }
@@ -326,7 +418,7 @@ async function extractMissing(items, prev) {
     const top = Object.entries(byError).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v])=>`${k}×${v}`).join(', ');
     console.log(`  bóc lỗi: ${fail} (${top})`);
   }
-  return { tried: todo.length, ok, reused, fail, byError };
+  return { tried: todo.length, ok, reused, fail, byError, linkMap };
 }
 
 const chuanHoa = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 90);
@@ -449,6 +541,8 @@ for (const it of items) {
   shard[it.l] = full;
   it.f = 1;
 }
+
+if (ex.linkMap && ex.linkMap.size) writeAtomic(LINKMAP_FILE, JSON.stringify(Object.fromEntries(ex.linkMap)));
 
 let shardFiles = 0, shardBytes = 0;
 for (const [id, shard] of shards) {
