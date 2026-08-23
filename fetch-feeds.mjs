@@ -79,12 +79,34 @@ function pickLink(item){
   return text(item.guid) || text(item['@_rdf:about']) || '';
 }
 
+/* Nhiều cỗ máy tìm kiếm bọc link thật vào một địa chỉ trung gian, nhưng để nguyên
+   URL gốc trong tham số truy vấn — Bing dùng ?url=…, một số nơi dùng ?u= hoặc ?q=.
+   Kiểu này giải mã ngay tại chỗ, không cần gọi mạng, không phụ thuộc ai.
+   (Google News thì khác: mã CBMi… là token đóng, không giải cục bộ được.) */
+function unwrapRedirect(link){
+  let cur = link;
+  for (let i = 0; i < 3; i++){
+    let u;
+    try{ u = new URL(cur); }catch{ return cur; }
+    let next = null;
+    for (const key of ['url', 'u', 'q', 'target', 'redirect']){
+      const v = u.searchParams.get(key);
+      if (v && /^https?:\/\//i.test(v) && v !== cur){ next = v; break; }
+    }
+    if (!next) return cur;
+    cur = next;
+  }
+  return cur;
+}
+
 /* Google News bọc link thật trong link chuyển hướng -> lấy lại link gốc trong mô tả */
 function cleanLink(link, descHtml){
+  const mo = unwrapRedirect(link);
+  if (mo !== link) return mo;
   try{
     if (new URL(link).hostname.includes('news.google.com') && descHtml){
       const m = String(descHtml).match(/href="(https?:\/\/(?!news\.google)[^"]+)"/);
-      if (m) return m[1].replace(/&amp;/g, '&');
+      if (m) return unwrapRedirect(m[1].replace(/&amp;/g, '&'));
     }
   }catch{}
   return link;
@@ -100,9 +122,11 @@ function parseFeed(xml, src){
   for (const n of nodes){
     const descRaw = n['content:encoded'] ?? n.description ?? n.summary ?? n.content ?? '';
     let title = stripHtml(text(n.title) || (typeof n.title === 'object' ? text(n.title['#text']) : ''));
-    if (src.url.includes('news.google.com')) title = title.replace(/\s+-\s+[^-]{2,30}$/, '');
     const link = cleanLink(pickLink(n), text(descRaw) || descRaw);
     if (!title || !link) continue;
+    // Google News gắn " - Tên báo" vào cuối tiêu đề. Cắt đi để tiêu đề sạch, và để
+    // còn khớp được với chính bài đó khi nó vào bằng feed của báo gốc.
+    if (GNEWS_RE.test(link)) title = title.replace(/\s+-\s+[^-]{2,40}$/, '');
 
     const dateStr = text(n.pubDate) || text(n.published) || text(n.updated) || text(n['dc:date']);
     const d = dateStr ? new Date(dateStr) : null;
@@ -296,17 +320,47 @@ async function worker(){
 }
 await Promise.all(Array.from({ length: Math.min(CONCURRENCY, queue.length) }, worker));
 
-/* bỏ trùng link, nhớ luôn các nguồn cùng đăng để lọc theo chuyên mục vẫn đúng */
-const map = new Map();
-for (const it of all){
-  const old = map.get(it.l);
-  if (!old){ it.a = []; map.set(it.l, it); continue; }
-  if (old.i !== it.i && !old.a.includes(it.i)) old.a.push(it.i);
-  // Cùng một bài có thể tới từ hai feed: bản của báo gốc kèm toàn văn, bản qua
-  // Google News thì không. Giữ lại bản nào có toàn văn, đừng để bản rỗng thắng.
-  if (!old._full && it._full) old._full = it._full;
-  if (!old.s && it.s) old.s = it.s;
+/* Bỏ bài trùng — theo link, VÀ theo tiêu đề.
+   Vì sao cần theo tiêu đề: cùng một bài Phoronix có thể vào bằng hai đường, một là
+   feed của chính Phoronix (link thật, đọc được), hai là luồng Google News (link
+   news.google.com, không đọc được). Hai link khác nhau nên so link thì không bắt
+   được. So thêm tiêu đề rồi giữ bản có link báo gốc là xong. */
+const chuanHoa = t => String(t || '').toLowerCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 90);
+const laGoogle = u => /^https?:\/\/news\.google\.com\//i.test(u || '');
+
+function gopVao(giu, bo){
+  giu.a = giu.a || [];
+  if (giu.i !== bo.i && !giu.a.includes(bo.i)) giu.a.push(bo.i);
+  for (const id of bo.a || []) if (id !== giu.i && !giu.a.includes(id)) giu.a.push(id);
+  if (!giu._full && bo._full) giu._full = bo._full;
+  if (!giu.s && bo.s) giu.s = bo.s;
 }
+
+const conLai = new Set();
+const theoLink = new Map(), theoTieuDe = new Map();
+for (const it of all){
+  it.a = it.a || [];
+  const cu = theoLink.get(it.l);
+  if (cu){ gopVao(cu, it); continue; }
+
+  const key = chuanHoa(it.t);
+  const cuT = key && theoTieuDe.get(key);
+  if (cuT){
+    if (laGoogle(cuT.l) && !laGoogle(it.l)){      // bản mới có link thật -> nó thắng
+      gopVao(it, cuT);
+      conLai.delete(cuT); theoLink.delete(cuT.l);
+      conLai.add(it); theoLink.set(it.l, it); theoTieuDe.set(key, it);
+    } else {
+      gopVao(cuT, it);
+    }
+    continue;
+  }
+  conLai.add(it); theoLink.set(it.l, it);
+  if (key) theoTieuDe.set(key, it);
+}
+const map = new Map([...conLai].map(it => [it.l, it]));
 /* Cắt bớt cho gọn, nhưng phải bảo đảm nguồn nào cũng có mặt.
    Nếu chỉ cắt theo thời gian thì nguồn nào bài cũ hơn — điển hình là các luồng
    Google News dùng when:30d — sẽ bị loại sạch dù vẫn lấy được bài. */
