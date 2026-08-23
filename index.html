@@ -28,6 +28,7 @@
   }
   .wrap{max-width:1080px;margin:0 auto;padding:0 16px}
   .bar{display:flex;align-items:center;gap:12px;padding:12px 0;flex-wrap:wrap}
+  .acts{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .logo{font-weight:700;font-size:17px;letter-spacing:-.2px;display:flex;align-items:center;gap:8px}
   .logo .dot{width:9px;height:9px;border-radius:50%;background:var(--accent)}
   .grow{flex:1}
@@ -214,7 +215,46 @@ a.card{
   #hlBtn{position:fixed;z-index:60;display:none;border:1px solid var(--accent);background:var(--accent);
          color:#fff;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25)}
   @media(max-width:640px){ .rd-body{padding:18px 18px 60px;font-size:15.5px} }
-  @media(max-width:560px){ .logo span.t{display:none} .search{order:9;width:100%} }
+  /* Điện thoại: phần đầu trang trước đây ăn tới 2/3 màn hình, phải cuộn mới
+     thấy bài đầu tiên. Nén lại bằng cách cho hai dải ngang (nút và nguồn) cuộn
+     một hàng thay vì xuống dòng chồng chất. */
+  @media(max-width:560px){
+    .logo span.t{display:none}
+    .search{order:9;width:100%;padding:6px 10px}
+    .bar{gap:8px;padding:8px 0}
+    .btn{padding:6px 9px;font-size:13px}
+    .acts{gap:6px}
+    .packsel{font-size:13.5px;padding:5px 7px;max-width:36vw}
+    .grow{display:none}
+    /* KHÔNG dùng justify-content:flex-end ở đây — khi nội dung tràn, phần đầu
+       dải bị cắt và cuộn tay không tới được (lỗi cũ của flexbox). Xếp từ trái
+       và đổi thứ tự để nút hay dùng nằm trước. */
+    .acts{
+      flex:1;min-width:0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;
+      -webkit-overflow-scrolling:touch;
+      -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 22px),transparent);
+      mask-image:linear-gradient(90deg,#000 calc(100% - 22px),transparent)
+    }
+    .acts::-webkit-scrollbar{display:none}
+    .acts .btn{flex:none}
+    #reload{order:1} #khoBtn{order:2} #cfgBtn{order:3}
+    #trBtn{order:4} #themeBtn{order:5} #addBtn{order:6}
+    .tabs{margin-bottom:6px}
+    .chips{
+      flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:8px;
+      -webkit-overflow-scrolling:touch;
+      -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);
+      mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent)
+    }
+    .chips::-webkit-scrollbar{display:none}
+    .chips .chip{flex:none}
+    .tagbar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+    .meta-row{flex-wrap:nowrap;gap:8px;margin-bottom:10px}
+    .meta-row .info{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .toggle,select.sort{font-size:12px;padding:5px 8px;white-space:nowrap}
+    .lbl{display:none}   /* rút gọn nhãn cho vừa một hàng */
+    .notice{padding:8px 11px;font-size:12.5px;margin-bottom:10px}
+  }
 </style>
 </head>
 <body>
@@ -230,12 +270,14 @@ a.card{
         <input id="q" type="search" placeholder="Tìm trong tiêu đề, tóm tắt…" autocomplete="off">
       </div>
       <div class="grow"></div>
-      <button class="btn" id="trBtn" title="Tự động dịch các bài tiếng nước ngoài sang tiếng Việt">🌐 Dịch</button>
-      <button class="btn" id="addBtn" title="Thêm nguồn RSS">+ Nguồn</button>
-      <button class="btn" id="khoBtn" title="Kho tri thức của tôi">📚 Kho</button>
-      <button class="btn" id="cfgBtn" title="Cấu hình, xuất/nhập, đã đọc">⚙</button>
-      <button class="btn" id="themeBtn" title="Đổi giao diện sáng/tối">◐</button>
-      <button class="btn primary" id="reload">Làm mới</button>
+      <div class="acts">
+        <button class="btn" id="trBtn" title="Tự động dịch các bài tiếng nước ngoài sang tiếng Việt">🌐 Dịch</button>
+        <button class="btn" id="addBtn" title="Thêm nguồn RSS">+ Nguồn</button>
+        <button class="btn" id="khoBtn" title="Kho tri thức của tôi">📚 Kho</button>
+        <button class="btn" id="cfgBtn" title="Cấu hình, xuất/nhập, đã đọc">⚙</button>
+        <button class="btn" id="themeBtn" title="Đổi giao diện sáng/tối">◐</button>
+        <button class="btn primary" id="reload">Làm mới</button>
+      </div>
     </div>
     <div class="tabs" id="tabs" role="tablist"></div>
     <div class="chips" id="chips"></div>
@@ -247,7 +289,7 @@ a.card{
   <div class="meta-row">
     <div class="info" id="info">Đang tải…</div>
     <div style="display:flex;gap:8px;align-items:center">
-    <button class="toggle" id="unreadBtn" aria-pressed="false" title="Ẩn những bài đã mở">Chỉ bài chưa đọc</button>
+    <button class="toggle" id="unreadBtn" aria-pressed="false" title="Ẩn những bài đã mở"><span class="lbl">Chỉ bài </span>chưa đọc</button>
     <select class="sort" id="sort">
       <option value="time">Mới nhất trước</option>
       <option value="source">Nhóm theo nguồn</option>
