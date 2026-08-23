@@ -1191,9 +1191,13 @@ function loadShard(srcId){
 
 async function prebuiltHtml(item){
   if (item.fullHtml && stripHtml(item.fullHtml).length > 900) return item.fullHtml;
-  if (!item.hasFull) return null;
-  const shard = await loadShard(item.srcId);
-  return (shard && shard[item.link]) || null;
+  // Thử cả nguồn phụ: cùng một bài có thể tới từ feed của báo gốc (có toàn văn)
+  // lẫn từ luồng Google News (không có) — bản nào có thì dùng.
+  for (const id of [item.srcId, ...(item.alt || [])]){
+    const shard = await loadShard(id);
+    if (shard && shard[item.link]) return shard[item.link];
+  }
+  return null;
 }
 
 async function fetchArticleHtml(url){

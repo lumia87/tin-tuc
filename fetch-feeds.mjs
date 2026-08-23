@@ -6,8 +6,10 @@
 
    Dùng:  node fetch-feeds.mjs [index.html] [data.json]
 */
-import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync, existsSync } from 'node:fs';
 import { XMLParser } from 'fast-xml-parser';
+import { JSDOM, VirtualConsole } from 'jsdom';
+import { Readability } from '@mozilla/readability';
 
 const HTML_FILE = process.argv[2] || 'index.html';
 const OUT_FILE  = process.argv[3] || 'data.json';
@@ -18,6 +20,15 @@ const CONTENT_DIR    = 'content';   // toàn văn tách riêng theo từng ngu�
 const MIN_CONTENT    = 900;         // ngắn hơn thì coi như chỉ là tóm tắt, không đáng lưu
 const MAX_ITEM_HTML  = 60 * 1024;   // trần mỗi bài
 const MAX_SHARD      = 1500 * 1024; // trần mỗi file nguồn
+
+/* Bóc nội dung trang gốc cho những bài feed không kèm toàn văn (VD bài từ Google News).
+   Chạy trên máy GitHub nên không vướng CORS. Bài đã bóc lần trước được dùng lại,
+   nên mỗi lần chạy chỉ phải tải những bài thật sự mới. Tắt bằng EXTRACT=0. */
+const EXTRACT        = process.env.EXTRACT !== '0';
+const EXTRACT_MAX    = Number(process.env.EXTRACT_MAX || 250);  // số bài mới tối đa mỗi lần chạy
+const EXTRACT_CONC   = 6;
+const PAGE_TIMEOUT   = 15000;
+const MAX_PAGE_BYTES = 3 * 1024 * 1024;
 const TIMEOUT_MS     = 20000;
 const CONCURRENCY    = 8;
 const UA = 'Mozilla/5.0 (compatible; tin-tuc-reader/1.0; +https://github.com)';
@@ -122,6 +133,80 @@ async function fetchText(url){
   } finally { clearTimeout(timer); }
 }
 
+/* ---------- bóc nội dung trang gốc ---------- */
+
+/* đọc lại toàn văn đã bóc ở lần chạy trước để khỏi tải lại */
+function readPrevContent(){
+  const prev = new Map();
+  if (!existsSync(CONTENT_DIR)) return prev;
+  for (const f of readdirSync(CONTENT_DIR)){
+    if (!f.endsWith('.json')) continue;
+    try{
+      const obj = JSON.parse(readFileSync(`${CONTENT_DIR}/${f}`, 'utf8'));
+      for (const [link, html] of Object.entries(obj)) prev.set(link, html);
+    }catch{}
+  }
+  return prev;
+}
+
+async function fetchPage(url){
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), PAGE_TIMEOUT);
+  try{
+    const r = await fetch(url, {
+      signal: ctl.signal, redirect: 'follow',
+      headers: { 'user-agent': UA, accept: 'text/html,application/xhtml+xml' }
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const type = r.headers.get('content-type') || '';
+    if (!/html/i.test(type)) throw new Error('không phải HTML');
+    const len = Number(r.headers.get('content-length') || 0);
+    if (len > MAX_PAGE_BYTES) throw new Error('trang quá nặng');
+    const body = await r.text();
+    if (body.length > MAX_PAGE_BYTES) throw new Error('trang quá nặng');
+    return body;
+  } finally { clearTimeout(timer); }
+}
+
+function readable(html, url){
+  const vc = new VirtualConsole();          // nuốt log lỗi CSS/JS của trang, khỏi rác nhật ký
+  const dom = new JSDOM(html, { url, virtualConsole: vc });
+  try{
+    const art = new Readability(dom.window.document, { charThreshold: 300 }).parse();
+    if (!art || !art.content) return '';
+    if ((art.textContent || '').trim().length < 400) return '';
+    return art.content.replace(/<script[\s\S]*?<\/script>/gi, '').slice(0, MAX_ITEM_HTML);
+  }catch{ return ''; }
+  finally { dom.window.close(); }
+}
+
+async function extractMissing(items, prev){
+  const todo = [];
+  for (const it of items){
+    if (it._full) continue;
+    const old = prev.get(it.l);
+    if (old){ it._full = old; continue; }          // đã bóc lần trước -> dùng lại
+    todo.push(it);
+  }
+  if (!EXTRACT || !todo.length) return { tried:0, ok:0, reused: items.filter(i => i._full).length };
+
+  const queue = todo.slice(0, EXTRACT_MAX);
+  console.log(`\nBóc nội dung trang gốc: ${queue.length} bài mới` +
+              (todo.length > queue.length ? ` (còn ${todo.length - queue.length} bài để lần sau)` : ''));
+  let ok = 0;
+  const worker = async () => {
+    while (queue.length){
+      const it = queue.shift();
+      try{
+        const content = readable(await fetchPage(it.l), it.l);
+        if (content){ it._full = content; ok++; }
+      }catch{}
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(EXTRACT_CONC, queue.length) }, worker));
+  return { tried: todo.length, ok, reused: items.filter(i => i._full).length - ok };
+}
+
 /* ---------- chạy ---------- */
 const sources = readSources(readFileSync(HTML_FILE, 'utf8'));
 console.log(`Có ${sources.length} nguồn cần lấy`);
@@ -155,10 +240,19 @@ for (const it of all){
   const old = map.get(it.l);
   if (!old){ it.a = []; map.set(it.l, it); continue; }
   if (old.i !== it.i && !old.a.includes(it.i)) old.a.push(it.i);
+  // Cùng một bài có thể tới từ hai feed: bản của báo gốc kèm toàn văn, bản qua
+  // Google News thì không. Giữ lại bản nào có toàn văn, đừng để bản rỗng thắng.
+  if (!old._full && it._full) old._full = it._full;
+  if (!old.s && it.s) old.s = it.s;
 }
 const items = [...map.values()]
   .sort((x, y) => new Date(y.d || 0) - new Date(x.d || 0))
   .slice(0, MAX_ITEMS);
+
+/* Bài nào feed không kèm toàn văn thì tải trang gốc rồi bóc phần thân bài.
+   Đọc lại kết quả lần trước TRƯỚC khi xoá thư mục, để chỉ tải bài thật sự mới. */
+const prevContent = readPrevContent();
+const ex = await extractMissing(items, prevContent);
 
 /* Tách toàn văn ra file riêng theo từng nguồn: content/<id>.json
    Trang chỉ tải file của nguồn nào khi bạn mở bài của nguồn đó, nên data.json
@@ -188,7 +282,8 @@ for (const [id, shard] of shards){
 
 writeFileSync(OUT_FILE, JSON.stringify({ at: Date.now(), sources: status, items }));
 console.log(`Toàn văn dựng sẵn: ${items.filter(i => i.f).length}/${items.length} bài, ` +
-            `${shardFiles} file, ${Math.round(shardBytes / 1024)} KB`);
+            `${shardFiles} file, ${Math.round(shardBytes / 1024)} KB` +
+            (EXTRACT ? ` (bóc mới ${ex.ok}, dùng lại ${ex.reused})` : ' (bỏ qua bước bóc)'));
 
 const ok = Object.values(status).filter(v => !v.error).length;
 console.log(`\nXong: ${items.length} bài từ ${ok}/${sources.length} nguồn -> ${OUT_FILE}`);
