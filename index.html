@@ -185,6 +185,16 @@ a.card{
   .rd-body figcaption{color:var(--muted);font-size:12.5px;text-align:center;margin:-8px 0 16px}
   .rd-body .tr{color:var(--muted);font-size:14px;font-style:italic;margin:-10px 0 16px}
   .rd-note{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;color:var(--muted);font-size:13.5px}
+  /* Bài không đọc được tại chỗ: đưa ra một nút rõ ràng thay vì một lời báo lỗi */
+  .rd-blocked{
+    background:var(--panel-2);border:1px solid var(--line);border-radius:12px;
+    padding:22px 20px;text-align:center;margin-top:6px
+  }
+  .rd-blocked .b1{margin:0 0 14px;font-size:15px;color:var(--text)}
+  .rd-blocked .b2{margin:14px 0 0;font-size:12.5px;color:var(--muted)}
+  .btn.big{padding:10px 20px;font-size:15px;text-decoration:none;display:inline-flex}
+  /* dấu hiệu trên thẻ tin: bài này bấm vào sẽ mở thẳng trang gốc */
+  .out{color:var(--muted);opacity:.8}
   @media(max-width:640px){ .rd-body{padding:18px 18px 60px;font-size:15.5px} }
   @media(max-width:560px){ .logo span.t{display:none} .search{order:9;width:100%} }
 </style>
@@ -1148,6 +1158,10 @@ function render(){
     const done  = i.tState === 'done' && i.tShow;
     const title = done ? i.tTitle : i.title;
     const sum   = done ? (i.tSummary || i.summary) : i.summary;
+    // dấu hiệu riêng, KHÔNG dùng chung biến với nút dịch kẻo bị ghi đè
+    const chiNgoai = /^https?:\/\/news\.google\.com\//i.test(i.link) && !i.hasFull;
+    const outUi = chiNgoai
+      ? `<span class="sep">•</span><span class="out" title="Bài này chỉ đọc được ở trang gốc">↗ trang gốc</span>` : '';
     let trUi = '';
     if (done)                        trUi = `<span class="sep">•</span><span class="tbadge tbtn" role="button" data-o="${esc(i.link)}" title="Bấm để xem lại bản gốc">đã dịch</span>`;
     else if (i.tState === 'loading') trUi = `<span class="sep">•</span><span>đang dịch…</span>`;
@@ -1166,7 +1180,7 @@ function render(){
           <span class="src" style="color:${i.color}"><span class="sq" style="background:${i.color}"></span>${esc(i.srcName)}</span>
           <span class="sep">•</span><span>${esc(timeAgo(i.date))}</span>
           <span class="sep">•</span><span>${esc(new URL(i.link).hostname.replace(/^www\./,''))}</span>
-          ${trUi}
+          ${outUi}${trUi}
         </div>
       </article>
     </a>`;
@@ -1348,11 +1362,42 @@ async function loadReaderContent(item){
     body.appendChild(box);
   }catch(e){
     if (rdItem !== item) return;
+    const bao = publisherOf(item);
+    const tomTat = usefulSummary(item);
     body.innerHTML = head +
-      `<p>${esc(item.summary || '')}</p>
-       <div class="rd-note">Không bóc được nội dung bài này (${esc(e.message || 'lỗi')}).
-       Một số trang chặn đọc từ nơi khác. Bấm <b>Trang gốc ↗</b> để mở bằng trình duyệt.</div>`;
+      (tomTat ? `<p>${esc(tomTat)}</p>` : '') +
+      `<div class="rd-blocked">
+         <p class="b1">Bài này chỉ đọc được ở trang gốc${bao ? ` — <b>${esc(bao)}</b>` : ''}.</p>
+         <a class="btn primary big" id="rdBlockedLink" href="${esc(item.link)}" target="_blank" rel="noopener noreferrer">
+           Mở bài ở trang gốc ↗</a>
+         <p class="b2">${esc(lyDo(e))}</p>
+       </div>`;
+    $('#rdBlockedLink')?.focus();
   }
+}
+
+/* Tên báo: Google News nhét vào cuối tóm tắt, còn lại thì lấy theo tên miền. */
+function publisherOf(item){
+  const m = (item.summary || '').match(/\s([A-Z][\w.& ]{2,24})$/);
+  if (m && item.summary.startsWith(item.title)) return m[1].trim();
+  try{ return new URL(item.link).hostname.replace(/^www\./,''); }catch(e){ return ''; }
+}
+
+/* Bỏ tóm tắt nếu nó chỉ là tiêu đề chép lại (Google News hay làm vậy). */
+function usefulSummary(item){
+  const s = (item.summary || '').trim();
+  if (!s) return '';
+  const norm = t => t.toLowerCase().replace(/[^a-z0-9à-ỹ]+/gi,' ').trim();
+  if (norm(s).startsWith(norm(item.title).slice(0, 60))) return '';
+  return s;
+}
+
+function lyDo(e){
+  const m = String(e && e.message || '');
+  if (/Google News/i.test(m)) return 'Link đi qua Google News nên không lấy được nội dung để hiển thị tại đây.';
+  if (/HTTP 4|HTTP 5|không phải HTML/i.test(m)) return 'Trang gốc từ chối yêu cầu đọc từ nơi khác.';
+  if (/quá ngắn|thân bài/i.test(m)) return 'Trang gốc dựng bằng JavaScript nên không bóc được phần thân bài.';
+  return 'Không lấy được nội dung: ' + m;
 }
 
 /* Rê chuột lên bài là bắt đầu lấy nội dung, chưa cần bấm — bấm vào thì có ngay. */
