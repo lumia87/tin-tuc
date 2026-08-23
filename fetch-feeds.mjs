@@ -15,7 +15,8 @@ const HTML_FILE = process.argv[2] || 'index.html';
 const OUT_FILE  = process.argv[3] || 'data.json';
 
 const MAX_PER_SOURCE = 25;
-const MAX_ITEMS      = 900;
+const MAX_ITEMS      = 1200;
+const KEEP_PER_SOURCE = 12;         // mỗi nguồn chắc chắn giữ được bấy nhiêu bài mới nhất
 const CONTENT_DIR    = 'content';   // toàn văn tách riêng theo từng nguồn, trang chỉ tải khi mở bài
 const MIN_CONTENT    = 900;         // ngắn hơn thì coi như chỉ là tóm tắt, không đáng lưu
 const MAX_ITEM_HTML  = 60 * 1024;   // trần mỗi bài
@@ -272,9 +273,30 @@ for (const it of all){
   if (!old._full && it._full) old._full = it._full;
   if (!old.s && it.s) old.s = it.s;
 }
-const items = [...map.values()]
-  .sort((x, y) => new Date(y.d || 0) - new Date(x.d || 0))
-  .slice(0, MAX_ITEMS);
+/* Cắt bớt cho gọn, nhưng phải bảo đảm nguồn nào cũng có mặt.
+   Nếu chỉ cắt theo thời gian thì nguồn nào bài cũ hơn — điển hình là các luồng
+   Google News dùng when:30d — sẽ bị loại sạch dù vẫn lấy được bài. */
+const sorted = [...map.values()].sort((x, y) => new Date(y.d || 0) - new Date(x.d || 0));
+
+const perSource = new Map();
+for (const it of sorted){                       // gom theo nguồn, vẫn giữ thứ tự mới -> cũ
+  if (!perSource.has(it.i)) perSource.set(it.i, []);
+  perSource.get(it.i).push(it);
+}
+const kept = new Set();
+// vòng 1: luân phiên từng nguồn một bài, để nguồn nào cũng có mặt trước khi ai đó lấy phần thứ hai
+for (let round = 0; round < KEEP_PER_SOURCE && kept.size < MAX_ITEMS; round++){
+  for (const list of perSource.values()){
+    if (!list[round]) continue;
+    kept.add(list[round]);
+    if (kept.size >= MAX_ITEMS) break;
+  }
+}
+for (const it of sorted){                       // vòng 2: lấp chỗ trống theo thời gian
+  if (kept.size >= MAX_ITEMS) break;
+  kept.add(it);
+}
+const items = sorted.filter(it => kept.has(it));
 
 /* Bài nào feed không kèm toàn văn thì tải trang gốc rồi bóc phần thân bài.
    Đọc lại kết quả lần trước TRƯỚC khi xoá thư mục, để chỉ tải bài thật sự mới. */
