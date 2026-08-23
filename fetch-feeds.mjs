@@ -6,7 +6,7 @@
 
    Dùng:  node fetch-feeds.mjs [index.html] [data.json]
 */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { XMLParser } from 'fast-xml-parser';
 
 const HTML_FILE = process.argv[2] || 'index.html';
@@ -14,6 +14,10 @@ const OUT_FILE  = process.argv[3] || 'data.json';
 
 const MAX_PER_SOURCE = 25;
 const MAX_ITEMS      = 900;
+const CONTENT_DIR    = 'content';   // toàn văn tách riêng theo từng nguồn, trang chỉ tải khi mở bài
+const MIN_CONTENT    = 900;         // ngắn hơn thì coi như chỉ là tóm tắt, không đáng lưu
+const MAX_ITEM_HTML  = 60 * 1024;   // trần mỗi bài
+const MAX_SHARD      = 1500 * 1024; // trần mỗi file nguồn
 const TIMEOUT_MS     = 20000;
 const CONCURRENCY    = 8;
 const UA = 'Mozilla/5.0 (compatible; tin-tuc-reader/1.0; +https://github.com)';
@@ -88,12 +92,17 @@ function parseFeed(xml, src){
     const dateStr = text(n.pubDate) || text(n.published) || text(n.updated) || text(n['dc:date']);
     const d = dateStr ? new Date(dateStr) : null;
 
+    // nhiều feed gửi kèm toàn văn -> giữ lại để trang khỏi phải tải trang gốc lúc đọc
+    const rawHtml = String(text(descRaw) || descRaw || '');
+    const full = stripHtml(rawHtml).length >= MIN_CONTENT ? rawHtml.slice(0, MAX_ITEM_HTML) : '';
+
     out.push({
       t: title,
       l: link,
       s: stripHtml(text(descRaw) || descRaw).slice(0, 300),
       d: d && !isNaN(d) ? d.toISOString() : null,
-      i: src.id, n: src.name, c: src.color
+      i: src.id, n: src.name, c: src.color,
+      _full: full
     });
   }
   return out;
@@ -151,7 +160,35 @@ const items = [...map.values()]
   .sort((x, y) => new Date(y.d || 0) - new Date(x.d || 0))
   .slice(0, MAX_ITEMS);
 
+/* Tách toàn văn ra file riêng theo từng nguồn: content/<id>.json
+   Trang chỉ tải file của nguồn nào khi bạn mở bài của nguồn đó, nên data.json
+   vẫn nhẹ mà mở bài lại không phải đi lấy trang gốc. */
+rmSync(CONTENT_DIR, { recursive: true, force: true });
+mkdirSync(CONTENT_DIR, { recursive: true });
+
+const shards = new Map();
+for (const it of items){
+  const full = it._full;
+  delete it._full;
+  if (!full) continue;
+  if (!shards.has(it.i)) shards.set(it.i, {});
+  const shard = shards.get(it.i);
+  const size = JSON.stringify(shard).length;
+  if (size + full.length > MAX_SHARD) continue;      // nguồn nào quá nặng thì dừng ở đó
+  shard[it.l] = full;
+  it.f = 1;                                          // đánh dấu: có sẵn toàn văn
+}
+let shardFiles = 0, shardBytes = 0;
+for (const [id, shard] of shards){
+  if (!Object.keys(shard).length) continue;
+  const body = JSON.stringify(shard);
+  writeFileSync(`${CONTENT_DIR}/${id}.json`, body);
+  shardFiles++; shardBytes += body.length;
+}
+
 writeFileSync(OUT_FILE, JSON.stringify({ at: Date.now(), sources: status, items }));
+console.log(`Toàn văn dựng sẵn: ${items.filter(i => i.f).length}/${items.length} bài, ` +
+            `${shardFiles} file, ${Math.round(shardBytes / 1024)} KB`);
 
 const ok = Object.values(status).filter(v => !v.error).length;
 console.log(`\nXong: ${items.length} bài từ ${ok}/${sources.length} nguồn -> ${OUT_FILE}`);

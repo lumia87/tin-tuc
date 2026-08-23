@@ -931,7 +931,7 @@ async function loadFromData(){
     const by = new Map(state.sources.map(s => [s.id, s]));
     state.items = d.items.filter(o => by.has(o.i)).map(o => {
       const s = by.get(o.i);
-      return { title:o.t, link:o.l, summary:o.s || '', fullHtml:'',
+      return { title:o.t, link:o.l, summary:o.s || '', fullHtml:'', hasFull: !!o.f,
                date:o.d ? new Date(o.d) : null,
                srcId:o.i, srcName:s.name, color:s.color, alt:o.a || [] };
     });
@@ -1175,6 +1175,27 @@ function extractArticle(doc){
   return score >= 220 ? best : null;
 }
 
+/* Toàn văn dựng sẵn: content/<id nguồn>.json, tải một lần cho mỗi nguồn rồi dùng lại.
+   Cùng tên miền với trang nên không cần cầu nối CORS, nhanh hơn hẳn tải trang gốc. */
+const shardCache = new Map();     // srcId -> Promise<{link: html}>
+const artCache   = new Map();     // link  -> chuỗi HTML đã dọn sẵn
+
+function loadShard(srcId){
+  if (!shardCache.has(srcId)){
+    shardCache.set(srcId, fetchWithTimeout(`content/${encodeURIComponent(srcId)}.json`, 10000)
+      .then(r => r.ok ? r.json() : null)
+      .catch(() => null));
+  }
+  return shardCache.get(srcId);
+}
+
+async function prebuiltHtml(item){
+  if (item.fullHtml && stripHtml(item.fullHtml).length > 900) return item.fullHtml;
+  if (!item.hasFull) return null;
+  const shard = await loadShard(item.srcId);
+  return (shard && shard[item.link]) || null;
+}
+
 async function fetchArticleHtml(url){
   let lastErr;
   for (let k = 0; k < PROXIES.length; k++){
@@ -1207,46 +1228,64 @@ function openReader(item){
   render();
 }
 
+/* Lấy nội dung bài, theo thứ tự nhanh dần:
+   1) đã đọc rồi -> lấy trong bộ nhớ, tức thì
+   2) toàn văn dựng sẵn (feed hoặc content/<nguồn>.json) -> không cần cầu nối
+   3) cuối cùng mới tải trang gốc qua cầu nối rồi bóc phần thân bài
+   Trả về chuỗi HTML đã dọn sạch, hoặc ném lỗi. */
+async function articleHtml(item){
+  if (artCache.has(item.link)) return artCache.get(item.link);
+
+  const pre = await prebuiltHtml(item);
+  if (pre){
+    const holder = document.createElement('div');
+    sanitizeInto(new DOMParser().parseFromString(pre, 'text/html').body, holder, item.link);
+    if (holder.textContent.trim().length > 400){
+      artCache.set(item.link, holder.innerHTML);
+      return holder.innerHTML;
+    }
+  }
+
+  const html = await fetchArticleHtml(item.link);
+  const doc  = new DOMParser().parseFromString(html, 'text/html');
+  const baseHref = doc.querySelector('base[href]')?.getAttribute('href') || item.link;
+  const main = extractArticle(doc);
+  if (!main) throw new Error('không tìm thấy phần thân bài');
+  const out = document.createElement('div');
+  sanitizeInto(main, out, absUrl(baseHref, item.link) || item.link);
+  if (out.textContent.trim().length < 250) throw new Error('nội dung quá ngắn');
+  artCache.set(item.link, out.innerHTML);
+  return out.innerHTML;
+}
+
 async function loadReaderContent(item){
   const body = $('#rdBody');
   const head = `<h1 class="t">${esc(item.tShow && item.tTitle ? item.tTitle : item.title)}</h1>
     ${item.tShow && item.tTitle ? `<p class="tr">${esc(item.title)}</p>` : ''}
     <p class="meta">${esc(item.srcName)} · ${esc(timeAgo(item.date))}</p>`;
 
-  const paint = frag => {
+  try{
+    const html = await articleHtml(item);
     if (rdItem !== item) return;                       // người dùng đã mở bài khác
     body.innerHTML = head;
-    body.appendChild(frag);
-  };
-
-  // 1) feed đã kèm toàn văn thì dùng luôn
-  const holder = document.createElement('div');
-  if (item.fullHtml && stripHtml(item.fullHtml).length > 900){
-    const doc = new DOMParser().parseFromString(item.fullHtml, 'text/html');
-    sanitizeInto(doc.body, holder, item.link);
-    if (holder.textContent.trim().length > 400){ paint(holder); return; }
-  }
-
-  // 2) không thì tải trang gốc rồi bóc phần thân bài
-  try{
-    const html = await fetchArticleHtml(item.link);
-    if (rdItem !== item) return;
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    const baseHref = doc.querySelector('base[href]')?.getAttribute('href') || item.link;
-    const main = extractArticle(doc);
-    if (!main) throw new Error('không tìm thấy phần thân bài');
-    const out = document.createElement('div');
-    sanitizeInto(main, out, absUrl(baseHref, item.link) || item.link);
-    if (out.textContent.trim().length < 250) throw new Error('nội dung quá ngắn');
-    paint(out);
+    const box = document.createElement('div');
+    box.innerHTML = html;                              // đã lọc sạch ở articleHtml
+    body.appendChild(box);
   }catch(e){
     if (rdItem !== item) return;
-    const fb = document.createElement('div');
-    fb.innerHTML = `<p>${esc(item.summary || '')}</p>
-      <div class="rd-note">Không bóc được nội dung bài này (${esc(e.message || 'lỗi')}).
-      Một số trang chặn đọc từ nơi khác. Bấm <b>Trang gốc ↗</b> để mở bằng trình duyệt.</div>`;
-    paint(fb);
+    body.innerHTML = head +
+      `<p>${esc(item.summary || '')}</p>
+       <div class="rd-note">Không bóc được nội dung bài này (${esc(e.message || 'lỗi')}).
+       Một số trang chặn đọc từ nơi khác. Bấm <b>Trang gốc ↗</b> để mở bằng trình duyệt.</div>`;
   }
+}
+
+/* Rê chuột lên bài là bắt đầu lấy nội dung, chưa cần bấm — bấm vào thì có ngay. */
+let preQueue = 0;
+function prefetchArticle(item){
+  if (!item || artCache.has(item.link) || preQueue >= 2) return;
+  preQueue++;
+  articleHtml(item).catch(() => {}).finally(() => { preQueue--; });
 }
 
 function closeReader(){
@@ -1376,6 +1415,19 @@ $('#list').addEventListener('click', async e => {
   const item = state.items.find(x => x.link === card.dataset.k);
   if (item) openReader(item);
 });
+
+/* rê chuột / chạm vào bài -> nạp trước nội dung */
+let preTimer;
+$('#list').addEventListener('mouseover', e => {
+  const card = e.target.closest('a.card'); if (!card) return;
+  clearTimeout(preTimer);
+  preTimer = setTimeout(() => prefetchArticle(state.items.find(x => x.link === card.dataset.k)), 120);
+});
+$('#list').addEventListener('mouseout', () => clearTimeout(preTimer));
+$('#list').addEventListener('touchstart', e => {
+  const card = e.target.closest('a.card');
+  if (card) prefetchArticle(state.items.find(x => x.link === card.dataset.k));
+}, { passive: true });
 
 /* mở bằng chuột giữa cũng tính là đã đọc */
 $('#list').addEventListener('auxclick', e => {

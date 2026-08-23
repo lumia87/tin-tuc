@@ -38,8 +38,8 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # phải add trước rồi so ở vùng đã stage — "git diff" không thấy file mới tạo lần đầu
-          git add data.json
-          if git diff --cached --quiet -- data.json; then
+          git add -A data.json content
+          if git diff --cached --quiet -- data.json content; then
             echo "Không có tin mới, bỏ qua."
             exit 0
           fi
