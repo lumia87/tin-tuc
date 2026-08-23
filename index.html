@@ -328,6 +328,20 @@ a.card{
       <button class="btn" id="cfgPersist">🔒 Xin lưu trữ bền vững</button>
     </div>
     <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:14px">
+      <div style="font-weight:650;font-size:14px;margin-bottom:8px">🔄 Đồng bộ tự động</div>
+      <label style="display:flex;align-items:center;gap:9px;margin:0 0 6px;color:var(--text);font-size:14px;cursor:pointer">
+        <input type="checkbox" id="dbTuDong" style="width:auto;margin:0">
+        Tự gộp kho giữa các máy, không cần bấm nút
+      </label>
+      <p style="color:var(--muted);font-size:12.5px;margin:0 0 8px">
+        Khi đã nối một chỗ lưu bên dưới, trang sẽ tự lấy về lúc mở và tự đẩy lên ít giây
+        sau mỗi lần bạn lưu bài, sửa ghi chú hay xoá. Bài xoá ở máy này cũng biến mất
+        ở máy kia chứ không quay về.
+      </p>
+      <div id="dbStat" style="font-size:12.5px;color:var(--muted);margin:0 0 4px"></div>
+      <button class="btn" id="dbNgay">🔄 Đồng bộ ngay</button>
+    </div>
+    <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:14px">
       <div style="font-weight:650;font-size:14px;margin-bottom:8px">📂 Ghi kho ra thư mục OneDrive / Drive trên máy</div>
       <p style="color:var(--muted);font-size:12.5px;margin:0 0 10px">
         Chọn đúng thư mục OneDrive trên máy một lần. Từ đó mỗi bài bạn lưu sẽ tự ghi thành file
@@ -748,7 +762,7 @@ const state = {
   sources: SOURCES.map(s => ({...s, group: s.group || 'dev', on: s.enabled !== false, status:'idle', count:0 })),
   items: [], query:'', sort:'time', pack:PACKS[0].id, group:'all', expand:false, translate:false, loading:false,
   read: new Set(), unreadOnly:false, persist:true, lazy:false, total:0, done:0, queue:null,
-  kho: new Map(), khoView:false, khoTag:''
+  kho: new Map(), khoView:false, khoTag:'', khoDirty: new Set()
 };
 
 /* ============================================================
@@ -1610,6 +1624,64 @@ async function khoLoad(){
 
 const daLuu = link => state.kho && state.kho.has(link);
 
+/* Xoá một bài ở máy này thì phải nhớ lại, không thì lần đồng bộ sau nó từ bản
+   trên mây quay về. Đây gọi là "bia mộ": link -> lúc xoá. */
+const XOA_KEY = 'tin-kho-xoa';
+function xoaMap(){ try{ return JSON.parse(localStorage.getItem(XOA_KEY) || '{}'); }catch(e){ return {}; } }
+function xoaLuu(m){
+  // dọn bia mộ quá cũ, không thì localStorage cứ phình ra mãi
+  const han = Date.now() - 180 * 86400000;
+  for (const [k, t] of Object.entries(m)) if (t < han) delete m[k];
+  try{ localStorage.setItem(XOA_KEY, JSON.stringify(m)); }catch(e){}
+}
+function xoaGhi(link){ const m = xoaMap(); m[link] = Date.now(); xoaLuu(m); }
+function xoaGop(remote){
+  const m = xoaMap();
+  for (const [k, t] of Object.entries(remote || {})) if (!m[k] || m[k] < t) m[k] = t;
+  xoaLuu(m);
+  return m;
+}
+
+/* Gộp một bản sao (từ Drive / OneDrive / thư mục) vào kho ở máy.
+   Luật: bản nào lưu sau thì thắng; bia mộ mới hơn thì xoá. */
+/* Đồng hồ để so bản nào mới hơn: suaLuc đổi mỗi lần sửa (ghi chú, vệt tô),
+   savedAt giữ nguyên lúc lưu lần đầu để hiển thị cho đúng. */
+const moiNhat = r => (r && (r.suaLuc || r.savedAt)) || 0;
+
+/* khoiPhuc=true: người dùng tự bấm "⬇ Lấy kho về" — hiểu là muốn lấy lại BẰNG HẾT,
+   kể cả bài đã lỡ tay xoá, nên bỏ qua bia mộ và xoá luôn bia mộ đó đi.
+   khoiPhuc=false: đồng bộ tự động — tôn trọng bia mộ, bài đã xoá không sống lại. */
+async function khoGop(data, khoiPhuc = false){
+  const bia = xoaGop(data && data.deleted);
+  let them = 0, capNhat = 0, xoa = 0;
+  if (khoiPhuc){
+    let doi = false;
+    for (const r of (data && data.items) || []){
+      if (!(r.link in bia)) continue;
+      delete bia[r.link];
+      // đánh dấu là vừa sửa, để bia mộ còn sót ở máy khác không xoá lại lần nữa
+      r.suaLuc = Date.now();
+      state.khoDirty.add(r.link);
+      doi = true;
+    }
+    if (doi){ xoaLuu(bia); setTimeout(() => henDongBo(3000), 0); }
+  }
+  for (const r of (data && data.items) || []){
+    if ((bia[r.link] || 0) > moiNhat(r)) continue;            // đã xoá sau khi máy kia lưu
+    const cu = state.kho.get(r.link);
+    if (!cu) them++;
+    else if (moiNhat(r) <= moiNhat(cu)) continue;
+    else capNhat++;
+    state.kho.set(r.link, r);
+    await khoPut(r);
+  }
+  for (const [link, t] of Object.entries(bia)){
+    const cu = state.kho.get(link);
+    if (cu && moiNhat(cu) < t){ state.kho.delete(link); await khoDel(link); xoa++; }
+  }
+  return { them, capNhat, xoa };
+}
+
 /* Lưu một bài: cố lấy toàn văn, không có thì lưu tóm tắt. */
 /* Trình duyệt có thể tự dọn IndexedDB khi máy thiếu chỗ. Xin "lưu trữ bền vững"
    thì nó cam kết không xoá — chỉ xin được sau một thao tác của người dùng, nên
@@ -1638,18 +1710,24 @@ async function khoLuu(item, htmlSan){
     srcName: item.srcName, color: item.color,
     date: item.date ? item.date.toISOString() : null,
     savedAt: cu ? cu.savedAt : Date.now(),
+    suaLuc: Date.now(),
     html,
     tags: cu ? cu.tags : [],
     note: cu ? cu.note : ''
   };
   state.kho.set(rec.link, rec);
   await khoPut(rec);
+  state.khoDirty.add(rec.link);
+  henDongBo();
   fsGhiBai(rec);        // nếu đã nối thư mục đồng bộ thì ghi luôn ra đó
   return rec;
 }
 
 async function khoBo(link){
   state.kho.delete(link);
+  xoaGhi(link);
+  state.khoDirty.delete(link);
+  henDongBo();
   try{ await khoDel(link); }catch(e){}
 }
 
@@ -1758,6 +1836,7 @@ function htmlSangMd(html){
 }
 
 const tenFileAnToan = s => (s || 'bai')
+  .replace(/đ/g,'d').replace(/Đ/g,'D')          // NFD không tách được chữ đ
   .normalize('NFD').replace(/[̀-ͯ]/g,'')
   .replace(/[^\w\s-]/g,'').trim().replace(/\s+/g,'-').slice(0,70) || 'bai';
 
@@ -1949,6 +2028,7 @@ $('#cfgBtn').addEventListener('click', () => {
   $('#odId').value = odCfg().clientId || ''; odStat();
   $('#gdId').value = gdCfg().clientId || ''; gdStat();
   fsStat();
+  $('#dbTuDong').checked = tuDongBat(); dbStat();
   $('#cfgDlg').showModal();
 });
 $('#cfgLazy').addEventListener('change', e => {
@@ -2231,7 +2311,7 @@ async function fsGhiTatCa(baoCao = () => {}){
     try{ await fsGhi(`${tenFileAnToan(list[i].title)}.md`, recSangMd(list[i])); ok++; }
     catch(e){ loi++; }
   }
-  try{ await fsGhi('kho.json', JSON.stringify({ v:1, at:Date.now(), items:list })); }catch(e){ loi++; }
+  try{ await fsGhi('kho.json', khoJson()); }catch(e){ loi++; }
   try{ await fsGhi('_muc-luc.md', '# Kho tri thức\n\n' + list.map((r,i) =>
         `${i+1}. [${r.title}](${tenFileAnToan(r.title)}.md) — ${r.srcName}`).join('\n')); }catch(e){}
   baoCao(`đã ghi ${ok} bài ra thư mục${loi ? `, ${loi} lỗi` : ''}`);
@@ -2246,16 +2326,9 @@ async function fsLayVe(baoCao = () => {}){
     txt = await (await fh.getFile()).text();
   }catch(e){ baoCao('trong thư mục chưa có kho.json'); return; }
   let data; try{ data = JSON.parse(txt); }catch(e){ baoCao('kho.json hỏng'); return; }
-  let them = 0, capNhat = 0;
-  for (const r of data.items || []){
-    const cu = state.kho.get(r.link);
-    if (!cu) them++;
-    else if ((r.savedAt || 0) <= (cu.savedAt || 0)) continue;
-    else capNhat++;
-    state.kho.set(r.link, r);
-    await khoPut(r);
-  }
-  baoCao(`đã lấy về: thêm ${them} bài, cập nhật ${capNhat}`);
+  const kq = await khoGop(data, true);   // bấm tay = khôi phục bằng hết
+  baoCao(`đã lấy về: thêm ${kq.them} bài, cập nhật ${kq.capNhat}` +
+         (kq.xoa ? `, bỏ ${kq.xoa} bài đã xoá ở máy khác` : ''));
   renderChips(); render();
 }
 
@@ -2404,7 +2477,7 @@ async function gdDongBoLen(baoCao = () => {}){
     try{ await gdGhi(`${tenFileAnToan(list[i].title)}.md`, recSangMd(list[i])); ok++; }
     catch(e){ loi++; }
   }
-  try{ await gdGhi('kho.json', JSON.stringify({ v:1, at:Date.now(), items:list }), 'application/json'); }
+  try{ await gdGhi('kho.json', khoJson(), 'application/json'); }
   catch(e){ loi++; }
   gdSave({ lanCuoi: Date.now() });
   baoCao(`xong: ${ok} bài lên Drive${loi ? `, ${loi} lỗi` : ''}`);
@@ -2415,16 +2488,9 @@ async function gdKhoiPhuc(baoCao = () => {}){
   const txt = await gdDoc('kho.json');
   if (!txt){ baoCao('trên Drive chưa có bản sao nào'); return; }
   let data; try{ data = JSON.parse(txt); }catch(e){ baoCao('bản sao hỏng'); return; }
-  let them = 0, capNhat = 0;
-  for (const r of data.items || []){
-    const cu = state.kho.get(r.link);
-    if (!cu) them++;
-    else if ((r.savedAt || 0) <= (cu.savedAt || 0)) continue;
-    else capNhat++;
-    state.kho.set(r.link, r);
-    await khoPut(r);
-  }
-  baoCao(`đã lấy về: thêm ${them} bài, cập nhật ${capNhat}`);
+  const kq = await khoGop(data, true);   // bấm tay = khôi phục bằng hết
+  baoCao(`đã lấy về: thêm ${kq.them} bài, cập nhật ${kq.capNhat}` +
+         (kq.xoa ? `, bỏ ${kq.xoa} bài đã xoá ở máy khác` : ''));
   renderChips(); render();
 }
 
@@ -2566,7 +2632,7 @@ async function odDongBoLen(baoCao = () => {}){
   }
   // kèm một bản sao đầy đủ để khôi phục nguyên trạng, gồm cả vệt tô sáng
   try{
-    await odPut('kho.json', JSON.stringify({ v:1, at:Date.now(), items:list }), 'application/json');
+    await odPut('kho.json', khoJson(), 'application/json');
   }catch(e){ loi++; }
   odSave({ lanCuoi: Date.now() });
   baoCao(`xong: ${ok} bài lên OneDrive${loi ? `, ${loi} lỗi` : ''}`);
@@ -2579,16 +2645,9 @@ async function odKhoiPhuc(baoCao = () => {}){
   if (!txt){ baoCao('trên OneDrive chưa có bản sao nào'); return; }
   let data;
   try{ data = JSON.parse(txt); }catch(e){ baoCao('bản sao hỏng'); return; }
-  let them = 0, capNhat = 0;
-  for (const r of data.items || []){
-    const cu = state.kho.get(r.link);
-    if (!cu) them++;
-    else if ((r.savedAt || 0) <= (cu.savedAt || 0)) continue;   // bản ở máy mới hơn thì giữ
-    else capNhat++;
-    state.kho.set(r.link, r);
-    await khoPut(r);
-  }
-  baoCao(`đã lấy về: thêm ${them} bài, cập nhật ${capNhat}`);
+  const kq = await khoGop(data, true);   // bấm tay = khôi phục bằng hết
+  baoCao(`đã lấy về: thêm ${kq.them} bài, cập nhật ${kq.capNhat}` +
+         (kq.xoa ? `, bỏ ${kq.xoa} bài đã xoá ở máy khác` : ''));
   renderChips(); render();
 }
 
@@ -2702,7 +2761,9 @@ $('#rdSaveMeta').addEventListener('click', async () => {
   const rec = state.kho.get(rdItem.link); if (!rec) return;
   rec.tags = $('#rdTags').value.split(',').map(t => t.trim().replace(/\s+/g,'-')).filter(Boolean);
   rec.note = $('#rdNote').value.trim();
+  rec.suaLuc = Date.now();
   await khoPut(rec);
+  state.khoDirty.add(rec.link); henDongBo();
   $('#rdSaveMeta').textContent = 'Đã lưu ✓';
   setTimeout(() => { $('#rdSaveMeta').textContent = 'Lưu ghi chú'; }, 1500);
   renderChips(); render();
@@ -2745,6 +2806,134 @@ $('#hlBtn').addEventListener('click', async () => {
   syncReaderSave(); renderChips(); render();
 });
 
+/* ============================================================
+   ĐỒNG BỘ TỰ ĐỘNG
+   Vì sao cần: trước đây mỗi máy phải tự bấm ⬆/⬇ nên điện thoại và máy tính
+   hay lệch nhau. Giờ trang tự làm: mở trang thì kéo về, lưu/sửa/xoá xong thì
+   ít giây sau tự đẩy lên, và cứ mỗi phút ngó lại một lần.
+   Chỗ lưu dùng chỗ nào đang nối: Google Drive → OneDrive → thư mục trên máy.
+   ============================================================ */
+const TUDONG_KEY = 'tin-tudong';
+const tuDongBat  = () => { try{ return localStorage.getItem(TUDONG_KEY) !== '0'; }catch(e){ return true; } };
+const tuDongDat  = v  => { try{ localStorage.setItem(TUDONG_KEY, v ? '1' : '0'); }catch(e){} };
+
+function kenhDongBo(){
+  try{ if (gdDaNoi()) return 'gd'; }catch(e){}
+  try{ if (odDaNoi()) return 'od'; }catch(e){}
+  if (typeof fsDir !== 'undefined' && fsDir) return 'fs';
+  return null;
+}
+const tenKenh = k => k === 'gd' ? 'Google Drive' : k === 'od' ? 'OneDrive' : 'thư mục trên máy';
+
+/* Bản chụp cả kho, kèm danh sách bia mộ để máy kia biết bài nào đã bị xoá */
+const khoJson = () => JSON.stringify({
+  v: 2, at: Date.now(), items: [...state.kho.values()], deleted: xoaMap()
+});
+
+async function dbDoc(kenh){
+  if (kenh === 'gd') return gdDoc('kho.json');
+  if (kenh === 'od') return odGet('kho.json');
+  if (kenh === 'fs'){
+    try{ const fh = await fsDir.getFileHandle('kho.json'); return (await fh.getFile()).text(); }
+    catch(e){ return null; }
+  }
+  return null;
+}
+async function dbGhiKho(kenh, txt){
+  if (kenh === 'gd') return gdGhi('kho.json', txt, 'application/json');
+  if (kenh === 'od') return odPut('kho.json', txt, 'application/json');
+  if (kenh === 'fs') return fsGhi('kho.json', txt);
+}
+async function dbGhiBai(kenh, rec){
+  const ten = `${tenFileAnToan(rec.title)}.md`, md = recSangMd(rec);
+  if (kenh === 'gd') return gdGhi(ten, md);
+  if (kenh === 'od') return odPut(`kho/${ten}`, md);
+  if (kenh === 'fs') return fsGhi(ten, md);
+}
+
+/* Bản trên mây có khác kho ở máy không — để khỏi đẩy lên vô ích */
+function khacBanMay(data){
+  const items = (data && data.items) || [];
+  if (items.length !== state.kho.size) return true;
+  for (const r of items){
+    const cu = state.kho.get(r.link);
+    if (!cu || moiNhat(cu) !== moiNhat(r)) return true;
+  }
+  const xa = (data && data.deleted) || {}, nha = xoaMap();
+  for (const k of Object.keys(nha)) if (!(k in xa)) return true;
+  return false;
+}
+
+let dangDongBo = false, henTimer = null, lanCuoiDongBo = 0;
+
+function dbStat(msg){
+  const el = $('#dbStat'); if (!el) return;
+  if (msg){ el.textContent = msg; return; }
+  const k = kenhDongBo();
+  el.textContent = !k
+    ? 'Chưa nối chỗ lưu nào — chọn một cách bên dưới thì đồng bộ tự động mới chạy.'
+    : !tuDongBat() ? `Đang tắt. Chỗ lưu: ${tenKenh(k)}.`
+    : `Đang bật qua ${tenKenh(k)}` +
+      (lanCuoiDongBo ? ` · lần cuối ${timeAgo(new Date(lanCuoiDongBo))}` : '') +
+      (state.khoDirty.size ? ` · ${state.khoDirty.size} bài chờ đẩy` : '');
+}
+
+/* Một vòng: kéo về, gộp, rồi đẩy lên nếu có lệch. */
+async function tuDongDongBo(bao = () => {}){
+  const kenh = kenhDongBo();
+  if (!kenh || dangDongBo) return null;
+  dangDongBo = true;
+  try{
+    bao('đang lấy về…');
+    let data = null;
+    const txt = await dbDoc(kenh);
+    if (txt){ try{ data = JSON.parse(txt); }catch(e){ data = null; } }
+    const kq = data ? await khoGop(data) : { them:0, capNhat:0, xoa:0 };
+
+    if (state.khoDirty.size || khacBanMay(data)){
+      bao('đang đẩy lên…');
+      for (const link of [...state.khoDirty]){
+        const rec = state.kho.get(link);
+        if (!rec){ state.khoDirty.delete(link); continue; }
+        try{ await dbGhiBai(kenh, rec); state.khoDirty.delete(link); }catch(e){}
+      }
+      await dbGhiKho(kenh, khoJson());
+    }
+    lanCuoiDongBo = Date.now();
+    if (kenh === 'gd') gdSave({ lanCuoi: lanCuoiDongBo });
+    if (kenh === 'od') odSave({ lanCuoi: lanCuoiDongBo });
+    if (kq.them || kq.capNhat || kq.xoa){ renderChips(); render(); }
+    bao('');
+    return kq;
+  } finally { dangDongBo = false; }
+}
+
+/* Hẹn đẩy sau vài giây — gộp nhiều thao tác liền nhau thành một lần lên mạng */
+function henDongBo(ms = 8000){
+  if (!tuDongBat() || !kenhDongBo()) { dbStat(); return; }
+  dbStat();
+  clearTimeout(henTimer);
+  henTimer = setTimeout(() => { tuDongDongBo(dbStat).catch(e => dbStat('lỗi: ' + e.message)); }, ms);
+}
+
+/* Rời trang thì cố đẩy nốt; quay lại trang thì ngó xem máy kia có gì mới */
+document.addEventListener('visibilitychange', () => {
+  if (!tuDongBat() || !kenhDongBo()) return;
+  if (document.hidden){ if (state.khoDirty.size) henDongBo(0); }
+  else if (Date.now() - lanCuoiDongBo > 30000) henDongBo(1500);
+});
+setInterval(() => {
+  if (document.hidden || !tuDongBat() || !kenhDongBo()) return;
+  if (Date.now() - lanCuoiDongBo > 60000) tuDongDongBo(dbStat).catch(() => {});
+}, 60000);
+
+$('#dbTuDong').addEventListener('change', e => {
+  tuDongDat(e.target.checked); dbStat();
+  if (e.target.checked) henDongBo(500);
+});
+$('#dbNgay').addEventListener('click', () =>
+  tuDongDongBo(dbStat).catch(e => dbStat('lỗi: ' + e.message)));
+
 /* ---------- khởi động ---------- */
 const savedRaw = HAS_STORAGE ? (() => { try{ return localStorage.getItem(STORE_KEY); }catch(e){ return null; } })() : null;
 if (!savedRaw && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches)
@@ -2753,7 +2942,13 @@ if (new URLSearchParams(location.search).has('code'))
   odHandleRedirect().then(ok => { if (ok) alert('Đã kết nối OneDrive. Mở ⚙ để đẩy kho lên.'); });
 loadState();
 renderPacks();
-khoLoad().then(() => { renderChips(); render(); });
+khoLoad().then(() => {
+  renderChips(); render();
+  // mở trang là kéo bản mới nhất về ngay, khỏi phải bấm nút
+  if (tuDongBat()) setTimeout(() => {
+    if (kenhDongBo()) tuDongDongBo(dbStat).catch(() => {});
+  }, 1200);
+});
 fsNoiLai(false);
 syncUi();
 if (state.translate) $('#trBtn').title = 'Đang tự động dịch bài tiếng nước ngoài — bấm để tắt';
