@@ -326,6 +326,52 @@ a.card{
       <button class="btn" id="cfgExport">⬇ Xuất file cấu hình</button>
       <button class="btn" id="cfgKho">⬇ Xuất kho ra Markdown (.zip)</button>
       <button class="btn" id="cfgPersist">🔒 Xin lưu trữ bền vững</button>
+    </div>
+    <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:14px">
+      <div style="font-weight:650;font-size:14px;margin-bottom:8px">📂 Ghi kho ra thư mục OneDrive / Drive trên máy</div>
+      <p style="color:var(--muted);font-size:12.5px;margin:0 0 10px">
+        Chọn đúng thư mục OneDrive trên máy một lần. Từ đó mỗi bài bạn lưu sẽ tự ghi thành file
+        <code>.md</code> trong đó, và OneDrive tự đẩy lên mây. Không cần đăng ký gì.
+      </p>
+      <div id="fsStat" style="font-size:12.5px;color:var(--muted);margin:0 0 10px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="fsPick">Chọn thư mục…</button>
+        <button class="btn" id="fsUp">⬆ Ghi cả kho ra đó</button>
+        <button class="btn" id="fsDown">⬇ Lấy kho từ thư mục</button>
+        <button class="btn" id="fsOff">Bỏ nối</button>
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:14px">
+      <div style="font-weight:650;font-size:14px;margin-bottom:8px">🗂 Google Drive — dùng được cả trên điện thoại</div>
+      <p style="color:var(--muted);font-size:12.5px;margin:0 0 10px">
+        Đồng bộ qua mạng nên máy nào mở trang cũng thấy chung một kho. Cần Client ID lấy từ
+        Google Cloud Console — tài khoản Gmail thường đăng ký được, không cần thẻ.
+      </p>
+      <label>Client ID (dạng …apps.googleusercontent.com)</label>
+      <input id="gdId" placeholder="123456-abcdef.apps.googleusercontent.com" spellcheck="false">
+      <div id="gdStat" style="font-size:12.5px;color:var(--muted);margin:10px 0"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="gdConnect">Kết nối Drive</button>
+        <button class="btn" id="gdUp">⬆ Đẩy kho lên</button>
+        <button class="btn" id="gdDown">⬇ Lấy kho về</button>
+        <button class="btn" id="gdOff">Ngắt kết nối</button>
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:14px">
+      <div style="font-weight:650;font-size:14px;margin-bottom:8px">☁ Hoặc nối thẳng API OneDrive</div>
+      <p style="color:var(--muted);font-size:12.5px;margin:0 0 10px">
+        Cách này đồng bộ được cả trên điện thoại, nhưng cần tài khoản Azure có thư mục riêng —
+        tài khoản Microsoft cá nhân (hotmail/outlook) không đăng ký ứng dụng được.
+      </p>
+      <label>Client ID (lấy từ Azure — xem hướng dẫn kèm theo)</label>
+      <input id="odId" placeholder="vd: 11111111-2222-3333-4444-555555555555" spellcheck="false">
+      <div id="odStat" style="font-size:12.5px;color:var(--muted);margin:10px 0"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="odConnect">Kết nối OneDrive</button>
+        <button class="btn" id="odUp">⬆ Đẩy kho lên</button>
+        <button class="btn" id="odDown">⬇ Lấy kho về</button>
+        <button class="btn" id="odOff">Ngắt kết nối</button>
+      </div>
       <button class="btn" id="cfgImport">⬆ Nhập từ file</button>
       <button class="btn" id="cfgClearRead">Xoá dấu đã đọc</button>
       <button class="btn" id="cfgReset">Khôi phục mặc định</button>
@@ -1598,6 +1644,7 @@ async function khoLuu(item, htmlSan){
   };
   state.kho.set(rec.link, rec);
   await khoPut(rec);
+  fsGhiBai(rec);        // nếu đã nối thư mục đồng bộ thì ghi luôn ra đó
   return rec;
 }
 
@@ -1898,7 +1945,11 @@ $('#cfgBtn').addEventListener('click', () => {
   $('#cfgPersist').checked = state.persist && HAS_STORAGE;
   $('#cfgPersist').disabled = !HAS_STORAGE;
   $('#cfgLazy').checked = state.lazy;
-  cfgStatus(); khoTinhTrang(); $('#cfgDlg').showModal();
+  cfgStatus(); khoTinhTrang();
+  $('#odId').value = odCfg().clientId || ''; odStat();
+  $('#gdId').value = gdCfg().clientId || ''; gdStat();
+  fsStat();
+  $('#cfgDlg').showModal();
 });
 $('#cfgLazy').addEventListener('change', e => {
   state.lazy = e.target.checked;
@@ -1924,6 +1975,65 @@ $('#cfgExport').addEventListener('click', () => {
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 });
 $('#cfgKho').addEventListener('click', khoXuatMd);
+
+/* ---- ghi ra thư mục trên máy ---- */
+async function fsStat(msg){
+  const el = $('#fsStat'); if (!el) return;
+  if (msg){ el.textContent = msg; return; }
+  if (!coFS()){
+    el.innerHTML = '⚠ Trình duyệt này chưa hỗ trợ. Cần Chrome hoặc Edge trên máy tính — '
+                 + 'hoặc dùng nút <b>Xuất kho ra Markdown (.zip)</b> ở trên.';
+    return;
+  }
+  const h = fsDir || await fsDocHandle();
+  if (!h){ el.textContent = 'Chưa nối thư mục nào.'; return; }
+  const p = await fsQuyen(h);
+  el.innerHTML = p === 'granted'
+    ? `Đang ghi vào thư mục <b>${esc(h.name || 'đã chọn')}</b> — mỗi bài lưu sẽ tự xuất ra đây.`
+    : `Thư mục <b>${esc(h.name || '')}</b> cần cấp lại quyền — bấm <b>Chọn thư mục…</b> rồi chọn lại đúng thư mục đó.`;
+}
+$('#fsPick').addEventListener('click', async () => {
+  if (await fsChon()) fsStat(); else fsStat('chưa chọn thư mục nào');
+});
+$('#fsUp').addEventListener('click',   () => fsGhiTatCa(fsStat).catch(e => fsStat('lỗi: ' + e.message)));
+$('#fsDown').addEventListener('click', () => fsLayVe(fsStat).catch(e => fsStat('lỗi: ' + e.message)));
+$('#fsOff').addEventListener('click',  async () => { fsDir = null; await fsXoaHandle(); fsStat(); });
+
+/* ---- Google Drive ---- */
+function gdStat(msg){
+  const el = $('#gdStat'); if (!el) return;
+  if (msg){ el.textContent = msg; return; }
+  const c = gdCfg();
+  el.innerHTML = gdDaNoi()
+    ? `Đã kết nối${c.lanCuoi ? ` · đồng bộ lần cuối ${timeAgo(new Date(c.lanCuoi))}` : ''}`
+    : (c.clientId ? 'Có Client ID, chưa đăng nhập. Bấm <b>Kết nối Drive</b>.'
+                  : 'Chưa có Client ID. Xem hướng dẫn kèm theo để lấy.');
+}
+$('#gdId').addEventListener('change', e => { gdSave({ clientId: e.target.value.trim() }); gdStat(); });
+$('#gdConnect').addEventListener('click', async () => {
+  gdSave({ clientId: $('#gdId').value.trim() });
+  try{ if (await gdConnect()) gdStat('đã kết nối'); }
+  catch(e){ gdStat('lỗi: ' + e.message); }
+});
+$('#gdUp').addEventListener('click',   () => gdDongBoLen(gdStat).catch(e => gdStat('lỗi: ' + e.message)));
+$('#gdDown').addEventListener('click', () => gdKhoiPhuc(gdStat).catch(e => gdStat('lỗi: ' + e.message)));
+$('#gdOff').addEventListener('click',  () => { gdNgat(); gdStat(); });
+
+/* ---- OneDrive ---- */
+function odStat(msg){
+  const c = odCfg();
+  const el = $('#odStat');
+  if (!el) return;
+  if (msg){ el.textContent = msg; return; }
+  el.innerHTML = odDaNoi()
+    ? `Đã kết nối${c.lanCuoi ? ` · đồng bộ lần cuối ${timeAgo(new Date(c.lanCuoi))}` : ''}`
+    : 'Chưa kết nối. Dán Client ID rồi bấm <b>Kết nối OneDrive</b>.';
+}
+$('#odId').addEventListener('change', e => { odSave({ clientId: e.target.value.trim() }); odStat(); });
+$('#odConnect').addEventListener('click', () => { odSave({ clientId: $('#odId').value.trim() }); odConnect(); });
+$('#odUp').addEventListener('click',   () => odDongBoLen(odStat).catch(e => odStat('lỗi: ' + e.message)));
+$('#odDown').addEventListener('click', () => odKhoiPhuc(odStat).catch(e => odStat('lỗi: ' + e.message)));
+$('#odOff').addEventListener('click',  () => { odNgat(); odStat(); });
 $('#cfgPersist').addEventListener('click', async () => {
   const b = $('#cfgPersist');
   if (!navigator.storage || !navigator.storage.persist){ b.textContent = 'Trình duyệt không hỗ trợ'; return; }
@@ -2004,6 +2114,483 @@ $('#addDlg').addEventListener('close', () => {
   state.sources.push(s); $('#nName').value=''; $('#nUrl').value='';
   renderChips(); saveState(); loadOne(s);
 });
+
+/* ============================================================
+   GHI KHO RA MỘT THƯ MỤC TRÊN MÁY
+   Bạn chọn thư mục OneDrive (hoặc Google Drive) một lần, trình duyệt nhớ quyền
+   đó, và từ đó mỗi bài lưu sẽ tự ghi thành .md ngay trong thư mục ấy — phần
+   đẩy lên mây do chính ứng dụng đồng bộ của OneDrive/Drive lo.
+   Không cần đăng ký ứng dụng, không OAuth, không tenant.
+   Cần Chrome hoặc Edge bản máy tính (File System Access API).
+   ============================================================ */
+const FS_DB = 'tin-fs-v1', FS_STORE = 'handle';
+const coFS = () => typeof window !== 'undefined' && !!window.showDirectoryPicker;
+let fsDir = null;                       // thư mục đang nối, giữ trong bộ nhớ phiên này
+
+function fsDbOpen(){
+  return new Promise((res, rej) => {
+    let rq; try{ rq = indexedDB.open(FS_DB, 1); }catch(e){ return rej(e); }
+    rq.onupgradeneeded = () => {
+      const db = rq.result;
+      if (!db.objectStoreNames.contains(FS_STORE)) db.createObjectStore(FS_STORE);
+    };
+    rq.onsuccess = () => res(rq.result);
+    rq.onerror = () => rej(rq.error);
+  });
+}
+async function fsLuuHandle(h){
+  try{
+    const db = await fsDbOpen();
+    await new Promise((res, rej) => {
+      const t = db.transaction(FS_STORE, 'readwrite');
+      t.objectStore(FS_STORE).put(h, 'dir');
+      t.oncomplete = res; t.onerror = () => rej(t.error);
+    });
+  }catch(e){}                            // không lưu được thì chỉ mất tác dụng ghi nhớ
+}
+async function fsDocHandle(){
+  try{
+    const db = await fsDbOpen();
+    return await new Promise((res, rej) => {
+      const t = db.transaction(FS_STORE, 'readonly');
+      const r = t.objectStore(FS_STORE).get('dir');
+      r.onsuccess = () => res(r.result || null);
+      r.onerror = () => rej(r.error);
+    });
+  }catch(e){ return null; }
+}
+async function fsXoaHandle(){
+  try{
+    const db = await fsDbOpen();
+    await new Promise(res => {
+      const t = db.transaction(FS_STORE, 'readwrite');
+      t.objectStore(FS_STORE).delete('dir');
+      t.oncomplete = res; t.onerror = res;
+    });
+  }catch(e){}
+}
+
+async function fsQuyen(h, hoi = false){
+  if (!h || !h.queryPermission) return 'granted';       // trình duyệt cũ: cứ thử ghi
+  const opt = { mode:'readwrite' };
+  let p = await h.queryPermission(opt);
+  if (p === 'prompt' && hoi && h.requestPermission) p = await h.requestPermission(opt);
+  return p;
+}
+
+/* Chọn thư mục — bắt buộc phải do người dùng bấm */
+async function fsChon(){
+  if (!coFS()){
+    alert('Trình duyệt này chưa hỗ trợ ghi thẳng ra thư mục. Hãy dùng Chrome hoặc Edge trên máy tính, '
+        + 'hoặc dùng nút "Xuất kho ra Markdown (.zip)".');
+    return false;
+  }
+  try{
+    const h = await window.showDirectoryPicker({ mode:'readwrite', id:'kho-tri-thuc' });
+    if (await fsQuyen(h, true) !== 'granted') return false;
+    fsDir = h;
+    await fsLuuHandle(h);
+    return true;
+  }catch(e){ return false; }             // người dùng bấm huỷ
+}
+
+/* Nối lại thư mục đã chọn lần trước, nếu quyền còn hiệu lực */
+async function fsNoiLai(hoi = false){
+  if (!coFS()) return false;
+  const h = fsDir || await fsDocHandle();
+  if (!h) return false;
+  const p = await fsQuyen(h, hoi);
+  if (p !== 'granted') { fsDir = h; return false; }
+  fsDir = h;
+  return true;
+}
+
+async function fsGhi(ten, noiDung){
+  if (!fsDir) return false;
+  const fh = await fsDir.getFileHandle(ten, { create:true });
+  const w  = await fh.createWritable();
+  await w.write(noiDung);
+  await w.close();
+  return true;
+}
+
+/* Ghi một bài — gọi ngay sau mỗi lần lưu, im lặng nếu chưa nối thư mục */
+async function fsGhiBai(rec){
+  if (!fsDir) return;
+  try{ await fsGhi(`${tenFileAnToan(rec.title)}.md`, recSangMd(rec)); }catch(e){}
+}
+
+/* Ghi cả kho + một bản kho.json để khôi phục nguyên trạng */
+async function fsGhiTatCa(baoCao = () => {}){
+  if (!(await fsNoiLai(true))){ baoCao('chưa nối thư mục nào'); return; }
+  const list = [...state.kho.values()];
+  if (!list.length){ baoCao('kho đang trống'); return; }
+  let ok = 0, loi = 0;
+  for (let i = 0; i < list.length; i++){
+    baoCao(`đang ghi ${i+1}/${list.length}…`);
+    try{ await fsGhi(`${tenFileAnToan(list[i].title)}.md`, recSangMd(list[i])); ok++; }
+    catch(e){ loi++; }
+  }
+  try{ await fsGhi('kho.json', JSON.stringify({ v:1, at:Date.now(), items:list })); }catch(e){ loi++; }
+  try{ await fsGhi('_muc-luc.md', '# Kho tri thức\n\n' + list.map((r,i) =>
+        `${i+1}. [${r.title}](${tenFileAnToan(r.title)}.md) — ${r.srcName}`).join('\n')); }catch(e){}
+  baoCao(`đã ghi ${ok} bài ra thư mục${loi ? `, ${loi} lỗi` : ''}`);
+}
+
+/* Đọc kho.json trong thư mục về, gộp vào kho ở máy */
+async function fsLayVe(baoCao = () => {}){
+  if (!(await fsNoiLai(true))){ baoCao('chưa nối thư mục nào'); return; }
+  let txt;
+  try{
+    const fh = await fsDir.getFileHandle('kho.json');
+    txt = await (await fh.getFile()).text();
+  }catch(e){ baoCao('trong thư mục chưa có kho.json'); return; }
+  let data; try{ data = JSON.parse(txt); }catch(e){ baoCao('kho.json hỏng'); return; }
+  let them = 0, capNhat = 0;
+  for (const r of data.items || []){
+    const cu = state.kho.get(r.link);
+    if (!cu) them++;
+    else if ((r.savedAt || 0) <= (cu.savedAt || 0)) continue;
+    else capNhat++;
+    state.kho.set(r.link, r);
+    await khoPut(r);
+  }
+  baoCao(`đã lấy về: thêm ${them} bài, cập nhật ${capNhat}`);
+  renderChips(); render();
+}
+
+/* ============================================================
+   ĐỒNG BỘ KHO LÊN GOOGLE DRIVE
+   Dùng Google Identity Services (mô hình lấy vé trong trình duyệt) — không cần
+   khoá bí mật, chạy được cả trên điện thoại. Quyền xin là drive.file: ứng dụng
+   CHỈ thấy những tệp do chính nó tạo, không đọc được phần còn lại trong Drive.
+   ============================================================ */
+const GD_KEY   = 'tin-gdrive';
+const GD_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const GD_GSI   = 'https://accounts.google.com/gsi/client';
+const GD_API   = 'https://www.googleapis.com/drive/v3';
+const GD_UP    = 'https://www.googleapis.com/upload/drive/v3';
+const GD_THUMUC = 'Kho tri thuc';
+
+function gdCfg(){ try{ return JSON.parse(localStorage.getItem(GD_KEY) || '{}'); }catch(e){ return {}; } }
+function gdSave(o){ try{ localStorage.setItem(GD_KEY, JSON.stringify({ ...gdCfg(), ...o })); }catch(e){} }
+
+let gdClient = null;
+
+/* nạp thư viện của Google, chỉ khi thật sự cần */
+function gdNapGSI(){
+  if (window.google && google.accounts && google.accounts.oauth2) return Promise.resolve(true);
+  return new Promise(res => {
+    const s = document.createElement('script');
+    s.src = GD_GSI; s.async = true; s.defer = true;
+    s.onload  = () => res(!!(window.google && google.accounts && google.accounts.oauth2));
+    s.onerror = () => res(false);
+    document.head.appendChild(s);
+  });
+}
+
+/* Xin vé. hoi=true là mở hộp thoại đăng nhập, false là xin lặng lẽ khi vé hết hạn. */
+function gdXinVe(hoi){
+  return new Promise((res, rej) => {
+    const { clientId } = gdCfg();
+    if (!clientId) return rej(new Error('chưa có Client ID'));
+    if (!gdClient){
+      gdClient = google.accounts.oauth2.initTokenClient({
+        client_id: clientId, scope: GD_SCOPE, callback: () => {}
+      });
+    }
+    gdClient.callback = r => {
+      if (r && r.access_token){
+        gdSave({ token:r.access_token, hetHan: Date.now() + ((r.expires_in || 3600) - 60) * 1000 });
+        res(r.access_token);
+      } else rej(new Error((r && r.error) || 'không lấy được vé'));
+    };
+    try{ gdClient.requestAccessToken({ prompt: hoi ? 'consent' : '' }); }
+    catch(e){ rej(e); }
+  });
+}
+
+async function gdToken(hoi = false){
+  const c = gdCfg();
+  if (c.token && c.hetHan && Date.now() < c.hetHan) return c.token;
+  if (!(await gdNapGSI())) throw new Error('không nạp được thư viện Google');
+  return gdXinVe(hoi);
+}
+
+const gdDaNoi = () => !!(gdCfg().token && gdCfg().hetHan > Date.now());
+
+async function gdConnect(){
+  const { clientId } = gdCfg();
+  if (!clientId){ alert('Chưa có Client ID. Dán mã lấy từ Google Cloud Console vào ô Google Drive.'); return false; }
+  if (!(await gdNapGSI())){ alert('Không nạp được thư viện Google — kiểm tra kết nối mạng.'); return false; }
+  await gdXinVe(true);
+  return true;
+}
+
+function gdNgat(){
+  const id = gdCfg().clientId;
+  try{ localStorage.removeItem(GD_KEY); }catch(e){}
+  if (id) gdSave({ clientId: id });
+  gdClient = null;
+}
+
+async function gdFetch(url, opt = {}){
+  const t = await gdToken();
+  const r = await fetch(url, { ...opt, headers: { authorization:'Bearer ' + t, ...(opt.headers || {}) } });
+  if (!r.ok) throw new Error('Drive ' + r.status);
+  return r;
+}
+
+/* thư mục chứa kho — tạo nếu chưa có, nhớ id lại cho lần sau */
+async function gdThuMuc(){
+  const c = gdCfg();
+  if (c.folderId) return c.folderId;
+  const q = encodeURIComponent(
+    `name='${GD_THUMUC}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const r = await gdFetch(`${GD_API}/files?q=${q}&fields=files(id,name)`);
+  const j = await r.json();
+  if (j.files && j.files.length){ gdSave({ folderId:j.files[0].id }); return j.files[0].id; }
+  const r2 = await gdFetch(`${GD_API}/files`, {
+    method:'POST', headers:{ 'content-type':'application/json' },
+    body: JSON.stringify({ name:GD_THUMUC, mimeType:'application/vnd.google-apps.folder' })
+  });
+  const j2 = await r2.json();
+  gdSave({ folderId:j2.id });
+  return j2.id;
+}
+
+async function gdTimTep(ten, folderId){
+  const q = encodeURIComponent(`name='${ten.replace(/'/g,"\\'")}' and '${folderId}' in parents and trashed=false`);
+  const r = await gdFetch(`${GD_API}/files?q=${q}&fields=files(id,name)`);
+  const j = await r.json();
+  return (j.files && j.files[0]) ? j.files[0].id : null;
+}
+
+/* ghi đè nếu tệp đã có, không thì tạo mới */
+async function gdGhi(ten, noiDung, kieu = 'text/markdown'){
+  const folderId = await gdThuMuc();
+  const id = await gdTimTep(ten, folderId);
+  if (id){
+    await gdFetch(`${GD_UP}/files/${id}?uploadType=media`, {
+      method:'PATCH', headers:{ 'content-type':kieu }, body:noiDung
+    });
+    return id;
+  }
+  const ranh = '-------tin' + Math.random().toString(36).slice(2);
+  const meta = JSON.stringify({ name:ten, parents:[folderId] });
+  const than =
+    `--${ranh}\r\ncontent-type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n` +
+    `--${ranh}\r\ncontent-type: ${kieu}\r\n\r\n${noiDung}\r\n--${ranh}--`;
+  const r = await gdFetch(`${GD_UP}/files?uploadType=multipart&fields=id`, {
+    method:'POST', headers:{ 'content-type':`multipart/related; boundary=${ranh}` }, body:than
+  });
+  return (await r.json()).id;
+}
+
+async function gdDoc(ten){
+  const folderId = await gdThuMuc();
+  const id = await gdTimTep(ten, folderId);
+  if (!id) return null;
+  const r = await gdFetch(`${GD_API}/files/${id}?alt=media`);
+  return r.text();
+}
+
+async function gdDongBoLen(baoCao = () => {}){
+  const list = [...state.kho.values()];
+  if (!list.length){ baoCao('kho đang trống'); return; }
+  let ok = 0, loi = 0;
+  for (let i = 0; i < list.length; i++){
+    baoCao(`đang đẩy ${i+1}/${list.length}…`);
+    try{ await gdGhi(`${tenFileAnToan(list[i].title)}.md`, recSangMd(list[i])); ok++; }
+    catch(e){ loi++; }
+  }
+  try{ await gdGhi('kho.json', JSON.stringify({ v:1, at:Date.now(), items:list }), 'application/json'); }
+  catch(e){ loi++; }
+  gdSave({ lanCuoi: Date.now() });
+  baoCao(`xong: ${ok} bài lên Drive${loi ? `, ${loi} lỗi` : ''}`);
+}
+
+async function gdKhoiPhuc(baoCao = () => {}){
+  baoCao('đang tải bản sao…');
+  const txt = await gdDoc('kho.json');
+  if (!txt){ baoCao('trên Drive chưa có bản sao nào'); return; }
+  let data; try{ data = JSON.parse(txt); }catch(e){ baoCao('bản sao hỏng'); return; }
+  let them = 0, capNhat = 0;
+  for (const r of data.items || []){
+    const cu = state.kho.get(r.link);
+    if (!cu) them++;
+    else if ((r.savedAt || 0) <= (cu.savedAt || 0)) continue;
+    else capNhat++;
+    state.kho.set(r.link, r);
+    await khoPut(r);
+  }
+  baoCao(`đã lấy về: thêm ${them} bài, cập nhật ${capNhat}`);
+  renderChips(); render();
+}
+
+/* ============================================================
+   ĐỒNG BỘ KHO LÊN ONEDRIVE (Microsoft Graph)
+   Dùng luồng OAuth 2.0 Authorization Code + PKCE — không cần khoá bí mật,
+   không cần thư viện ngoài, chạy được từ trang tĩnh trên GitHub Pages.
+   Quyền xin là Files.ReadWrite.AppFolder: chỉ đụng được đúng thư mục riêng
+   của ứng dụng trong OneDrive, không thấy phần còn lại của ổ.
+   ============================================================ */
+const OD_TENANT = 'common';
+const OD_AUTH   = `https://login.microsoftonline.com/${OD_TENANT}/oauth2/v2.0/authorize`;
+const OD_TOKEN  = `https://login.microsoftonline.com/${OD_TENANT}/oauth2/v2.0/token`;
+const OD_GRAPH  = 'https://graph.microsoft.com/v1.0';
+const OD_SCOPE  = 'Files.ReadWrite.AppFolder offline_access';
+const OD_KEY    = 'tin-onedrive';
+
+function odCfg(){
+  try{ return JSON.parse(localStorage.getItem(OD_KEY) || '{}'); }catch(e){ return {}; }
+}
+function odSave(o){
+  try{ localStorage.setItem(OD_KEY, JSON.stringify({ ...odCfg(), ...o })); }catch(e){}
+}
+const odRedirect = () => location.origin + location.pathname;
+
+/* ---- PKCE ---- */
+function odRandom(n = 64){
+  const a = new Uint8Array(n);
+  crypto.getRandomValues(a);
+  return odB64url(a);
+}
+function odB64url(bytes){
+  let s = '';
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+async function odChallenge(verifier){
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  return odB64url(new Uint8Array(d));
+}
+
+/* ---- đăng nhập ---- */
+async function odConnect(){
+  const { clientId } = odCfg();
+  if (!clientId){ alert('Chưa có Client ID. Mở ⚙ và dán Client ID lấy từ Azure vào ô OneDrive.'); return; }
+  const verifier = odRandom();
+  const state    = odRandom(16);
+  odSave({ verifier, state });
+  const u = new URL(OD_AUTH);
+  u.searchParams.set('client_id', clientId);
+  u.searchParams.set('response_type', 'code');
+  u.searchParams.set('redirect_uri', odRedirect());
+  u.searchParams.set('scope', OD_SCOPE);
+  u.searchParams.set('code_challenge', await odChallenge(verifier));
+  u.searchParams.set('code_challenge_method', 'S256');
+  u.searchParams.set('state', state);
+  location.href = u.toString();
+}
+
+/* Sau khi Microsoft chuyển hướng về, đổi mã lấy vé */
+async function odHandleRedirect(){
+  const q = new URLSearchParams(location.search);
+  const code = q.get('code');
+  if (!code) {
+    if (q.get('error')) alert('OneDrive báo lỗi: ' + q.get('error_description') || q.get('error'));
+    return false;
+  }
+  const cfg = odCfg();
+  history.replaceState(null, '', odRedirect());          // dọn địa chỉ cho sạch
+  if (q.get('state') !== cfg.state){ alert('Phiên đăng nhập không khớp, thử lại.'); return false; }
+
+  const body = new URLSearchParams({
+    client_id: cfg.clientId, grant_type: 'authorization_code', code,
+    redirect_uri: odRedirect(), code_verifier: cfg.verifier || ''
+  });
+  const r = await fetch(OD_TOKEN, {
+    method:'POST', headers:{ 'content-type':'application/x-www-form-urlencoded' }, body
+  });
+  const j = await r.json();
+  if (!r.ok || !j.access_token){ alert('Không lấy được vé: ' + (j.error_description || j.error || r.status)); return false; }
+  odSave({ token:j.access_token, refresh:j.refresh_token || cfg.refresh, hetHan: Date.now() + (j.expires_in || 3600)*1000,
+           verifier:null, state:null });
+  return true;
+}
+
+async function odToken(){
+  const c = odCfg();
+  if (c.token && c.hetHan && Date.now() < c.hetHan - 60000) return c.token;
+  if (!c.refresh) return null;
+  const body = new URLSearchParams({
+    client_id: c.clientId, grant_type: 'refresh_token', refresh_token: c.refresh, scope: OD_SCOPE
+  });
+  const r = await fetch(OD_TOKEN, { method:'POST', headers:{ 'content-type':'application/x-www-form-urlencoded' }, body });
+  const j = await r.json();
+  if (!r.ok || !j.access_token) return null;
+  odSave({ token:j.access_token, refresh:j.refresh_token || c.refresh, hetHan: Date.now() + (j.expires_in || 3600)*1000 });
+  return j.access_token;
+}
+
+const odDaNoi = () => !!(odCfg().refresh || odCfg().token);
+
+function odNgat(){
+  const id = odCfg().clientId;               // phải lấy TRƯỚC khi xoá, không thì mất luôn
+  try{ localStorage.removeItem(OD_KEY); }catch(e){}
+  if (id) odSave({ clientId: id });          // giữ lại Client ID cho lần sau
+}
+
+/* ---- đọc ghi tệp trong thư mục riêng của ứng dụng ---- */
+async function odPut(path, body, type = 'text/markdown'){
+  const t = await odToken();
+  if (!t) throw new Error('chưa đăng nhập OneDrive');
+  const r = await fetch(`${OD_GRAPH}/me/drive/special/approot:/${encodeURI(path)}:/content`, {
+    method:'PUT', headers:{ authorization:'Bearer ' + t, 'content-type':type }, body
+  });
+  if (!r.ok) throw new Error('OneDrive ' + r.status);
+  return r.json().catch(() => ({}));
+}
+async function odGet(path){
+  const t = await odToken();
+  if (!t) throw new Error('chưa đăng nhập OneDrive');
+  const r = await fetch(`${OD_GRAPH}/me/drive/special/approot:/${encodeURI(path)}:/content`, {
+    headers:{ authorization:'Bearer ' + t }
+  });
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error('OneDrive ' + r.status);
+  return r.text();
+}
+
+/* ---- đẩy cả kho lên ---- */
+async function odDongBoLen(baoCao = () => {}){
+  const list = [...state.kho.values()];
+  if (!list.length){ alert('Kho đang trống.'); return; }
+  let ok = 0, loi = 0;
+  for (let i = 0; i < list.length; i++){
+    const r = list[i];
+    baoCao(`đang đẩy ${i+1}/${list.length}…`);
+    try{ await odPut(`kho/${tenFileAnToan(r.title)}.md`, recSangMd(r)); ok++; }
+    catch(e){ loi++; }
+  }
+  // kèm một bản sao đầy đủ để khôi phục nguyên trạng, gồm cả vệt tô sáng
+  try{
+    await odPut('kho.json', JSON.stringify({ v:1, at:Date.now(), items:list }), 'application/json');
+  }catch(e){ loi++; }
+  odSave({ lanCuoi: Date.now() });
+  baoCao(`xong: ${ok} bài lên OneDrive${loi ? `, ${loi} lỗi` : ''}`);
+}
+
+/* ---- kéo bản sao về, gộp vào kho đang có ---- */
+async function odKhoiPhuc(baoCao = () => {}){
+  baoCao('đang tải bản sao…');
+  const txt = await odGet('kho.json');
+  if (!txt){ baoCao('trên OneDrive chưa có bản sao nào'); return; }
+  let data;
+  try{ data = JSON.parse(txt); }catch(e){ baoCao('bản sao hỏng'); return; }
+  let them = 0, capNhat = 0;
+  for (const r of data.items || []){
+    const cu = state.kho.get(r.link);
+    if (!cu) them++;
+    else if ((r.savedAt || 0) <= (cu.savedAt || 0)) continue;   // bản ở máy mới hơn thì giữ
+    else capNhat++;
+    state.kho.set(r.link, r);
+    await khoPut(r);
+  }
+  baoCao(`đã lấy về: thêm ${them} bài, cập nhật ${capNhat}`);
+  renderChips(); render();
+}
 
 /* ---------- giao diện Kho ---------- */
 
@@ -2162,9 +2749,12 @@ $('#hlBtn').addEventListener('click', async () => {
 const savedRaw = HAS_STORAGE ? (() => { try{ return localStorage.getItem(STORE_KEY); }catch(e){ return null; } })() : null;
 if (!savedRaw && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches)
   document.documentElement.setAttribute('data-theme','dark');   // chưa có cấu hình -> theo hệ thống
+if (new URLSearchParams(location.search).has('code'))
+  odHandleRedirect().then(ok => { if (ok) alert('Đã kết nối OneDrive. Mở ⚙ để đẩy kho lên.'); });
 loadState();
 renderPacks();
 khoLoad().then(() => { renderChips(); render(); });
+fsNoiLai(false);
 syncUi();
 if (state.translate) $('#trBtn').title = 'Đang tự động dịch bài tiếng nước ngoài — bấm để tắt';
 
