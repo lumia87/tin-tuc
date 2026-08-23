@@ -2084,10 +2084,12 @@ function gdStat(msg){
   const el = $('#gdStat'); if (!el) return;
   if (msg){ el.textContent = msg; return; }
   const c = gdCfg();
-  el.innerHTML = gdDaNoi()
-    ? `Đã kết nối${c.lanCuoi ? ` · đồng bộ lần cuối ${timeAgo(new Date(c.lanCuoi))}` : ''}`
-    : (c.clientId ? 'Có Client ID, chưa đăng nhập. Bấm <b>Kết nối Drive</b>.'
-                  : 'Chưa có Client ID. Xem hướng dẫn kèm theo để lấy.');
+  const lanCuoi = c.lanCuoi ? ` · đồng bộ lần cuối ${timeAgo(new Date(c.lanCuoi))}` : '';
+  el.innerHTML = gdDaNoi() ? `Đã kết nối${lanCuoi}`
+    : c.tat ? 'Đã ngắt trên thiết bị này. Bấm <b>Kết nối Drive</b> để nối lại.'
+    : gdCanDangNhapLai ? `⚠ Vé đã hết hạn, bấm <b>Kết nối Drive</b> lại${lanCuoi}`
+    : c.clientId ? `Đã có Client ID, vé sẽ tự xin lại khi cần${lanCuoi}`
+    : 'Chưa có Client ID. Xem hướng dẫn kèm theo để lấy.';
 }
 $('#gdId').addEventListener('change', e => { gdSave({ clientId: e.target.value.trim() }); gdStat(); });
 $('#gdConnect').addEventListener('click', async () => {
@@ -2374,12 +2376,16 @@ function gdXinVe(hoi){
     }
     gdClient.callback = r => {
       if (r && r.access_token){
+        gdCanDangNhapLai = false;
         gdSave({ token:r.access_token, hetHan: Date.now() + ((r.expires_in || 3600) - 60) * 1000 });
         res(r.access_token);
-      } else rej(new Error((r && r.error) || 'không lấy được vé'));
+      } else {
+        if (!hoi) gdCanDangNhapLai = true;      // xin lặng lẽ mà không được
+        rej(new Error((r && r.error) || 'không lấy được vé'));
+      }
     };
     try{ gdClient.requestAccessToken({ prompt: hoi ? 'consent' : '' }); }
-    catch(e){ rej(e); }
+    catch(e){ if (!hoi) gdCanDangNhapLai = true; rej(e); }
   });
 }
 
@@ -2390,21 +2396,33 @@ async function gdToken(hoi = false){
   return gdXinVe(hoi);
 }
 
-const gdDaNoi = () => !!(gdCfg().token && gdCfg().hetHan > Date.now());
+/* Vé Drive chỉ sống một tiếng. Trước đây hết vé là coi như mất kết nối, nên
+   đồng bộ tự động chết lặng — điện thoại để cả ngày không đụng tới thì kho
+   không bao giờ cập nhật nữa. Giờ chỉ cần còn Client ID là vẫn coi như đã nối,
+   gdToken() sẽ tự xin vé mới; chỉ khi xin lặng lẽ mà Google từ chối mới báo
+   phải đăng nhập lại. */
+let gdCanDangNhapLai = false;
+const gdDaNoi    = () => !!(gdCfg().token && gdCfg().hetHan > Date.now());
+const gdDungDuoc = () => !!gdCfg().clientId && !gdCfg().tat && !gdCanDangNhapLai;
 
 async function gdConnect(){
   const { clientId } = gdCfg();
   if (!clientId){ alert('Chưa có Client ID. Dán mã lấy từ Google Cloud Console vào ô Google Drive.'); return false; }
   if (!(await gdNapGSI())){ alert('Không nạp được thư viện Google — kiểm tra kết nối mạng.'); return false; }
   await gdXinVe(true);
+  gdSave({ tat: false });
+  gdCanDangNhapLai = false;
   return true;
 }
 
 function gdNgat(){
   const id = gdCfg().clientId;
   try{ localStorage.removeItem(GD_KEY); }catch(e){}
-  if (id) gdSave({ clientId: id });
+  // giữ Client ID cho lần sau, nhưng đánh dấu là người dùng CỐ Ý ngắt —
+  // nếu không thì đồng bộ tự động sẽ lặng lẽ xin vé mới, hoá ra không ngắt gì cả
+  if (id) gdSave({ clientId: id, tat: true });
   gdClient = null;
+  gdCanDangNhapLai = false;
 }
 
 async function gdFetch(url, opt = {}){
@@ -2668,7 +2686,10 @@ function renderKho(){
   $('#info').textContent = state.kho.size
     ? `${list.length}/${state.kho.size} bài trong kho`
     : 'Kho đang trống';
-  $('#notice').hidden = true;
+  // Cho thấy ngay kho này có đang nối với máy khác không — khỏi phải mở ⚙ mới biết
+  const chuaNoi = !kenhDongBo() || gdCanDangNhapLai;
+  $('#notice').hidden = !chuaNoi;
+  if (chuaNoi) $('#notice').textContent = '🔄 ' + dbTinhTrang();
 
   if (!list.length){
     $('#list').innerHTML = `<div class="empty">${state.kho.size
@@ -2818,7 +2839,7 @@ const tuDongBat  = () => { try{ return localStorage.getItem(TUDONG_KEY) !== '0';
 const tuDongDat  = v  => { try{ localStorage.setItem(TUDONG_KEY, v ? '1' : '0'); }catch(e){} };
 
 function kenhDongBo(){
-  try{ if (gdDaNoi()) return 'gd'; }catch(e){}
+  try{ if (gdDungDuoc()) return 'gd'; }catch(e){}
   try{ if (odDaNoi()) return 'od'; }catch(e){}
   if (typeof fsDir !== 'undefined' && fsDir) return 'fs';
   return null;
@@ -2869,13 +2890,21 @@ let dangDongBo = false, henTimer = null, lanCuoiDongBo = 0;
 function dbStat(msg){
   const el = $('#dbStat'); if (!el) return;
   if (msg){ el.textContent = msg; return; }
+  el.textContent = dbTinhTrang();
+}
+
+/* Một câu duy nhất mô tả đồng bộ đang ở tình trạng nào — dùng cho cả ⚙ lẫn tab Kho */
+function dbTinhTrang(){
   const k = kenhDongBo();
-  el.textContent = !k
-    ? 'Chưa nối chỗ lưu nào — chọn một cách bên dưới thì đồng bộ tự động mới chạy.'
-    : !tuDongBat() ? `Đang tắt. Chỗ lưu: ${tenKenh(k)}.`
-    : `Đang bật qua ${tenKenh(k)}` +
-      (lanCuoiDongBo ? ` · lần cuối ${timeAgo(new Date(lanCuoiDongBo))}` : '') +
-      (state.khoDirty.size ? ` · ${state.khoDirty.size} bài chờ đẩy` : '');
+  if (gdCanDangNhapLai)
+    return '⚠ Vé Google Drive đã hết hạn — mở ⚙ bấm Kết nối Drive một lần nữa.';
+  if (!k)
+    return 'Chưa nối chỗ lưu nào trên thiết bị này — kho ở đây sẽ khác máy khác. '
+         + 'Mở ⚙, dán Client ID rồi bấm Kết nối Drive.';
+  if (!tuDongBat()) return `Đồng bộ tự động đang tắt. Chỗ lưu: ${tenKenh(k)}.`;
+  return `Đồng bộ tự động qua ${tenKenh(k)}`
+       + (lanCuoiDongBo ? ` · lần cuối ${timeAgo(new Date(lanCuoiDongBo))}` : ' · chưa chạy lần nào')
+       + (state.khoDirty.size ? ` · ${state.khoDirty.size} bài chờ đẩy` : '');
 }
 
 /* Một vòng: kéo về, gộp, rồi đẩy lên nếu có lệch. */
