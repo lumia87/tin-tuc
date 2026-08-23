@@ -195,6 +195,24 @@ a.card{
   .btn.big{padding:10px 20px;font-size:15px;text-decoration:none;display:inline-flex}
   /* dấu hiệu trên thẻ tin: bài này bấm vào sẽ mở thẳng trang gốc */
   .out{color:var(--muted);opacity:.8}
+  /* kho tri thức */
+  .save{border:1px solid var(--line);border-radius:7px;padding:1px 8px;font-size:11.5px;cursor:pointer;
+        color:var(--muted);background:var(--panel-2)}
+  .save:hover{border-color:var(--accent);color:var(--accent)}
+  .save.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
+  .tagbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:0 0 12px}
+  .tagbar .chip.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+  .card .tags{display:inline-flex;gap:6px;flex-wrap:wrap}
+  .card .tg{background:var(--chip);border-radius:6px;padding:1px 7px;font-size:11.5px}
+  .rd-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+            padding:12px 0 0;margin-top:14px;border-top:1px solid var(--line)}
+  .rd-tools input{flex:1;min-width:150px;padding:7px 10px;border:1px solid var(--line);border-radius:9px;
+                  background:var(--panel-2);color:var(--text);outline:0;font-size:13.5px}
+  .rd-tools input:focus{border-color:var(--accent)}
+  .rd-body mark{background:#fde68a;color:#1c1917;padding:0 2px;border-radius:3px;cursor:pointer}
+  html[data-theme="dark"] .rd-body mark{background:#a16207;color:#fff}
+  #hlBtn{position:fixed;z-index:60;display:none;border:1px solid var(--accent);background:var(--accent);
+         color:#fff;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25)}
   @media(max-width:640px){ .rd-body{padding:18px 18px 60px;font-size:15.5px} }
   @media(max-width:560px){ .logo span.t{display:none} .search{order:9;width:100%} }
 </style>
@@ -214,6 +232,7 @@ a.card{
       <div class="grow"></div>
       <button class="btn" id="trBtn" title="Tự động dịch các bài tiếng nước ngoài sang tiếng Việt">🌐 Dịch</button>
       <button class="btn" id="addBtn" title="Thêm nguồn RSS">+ Nguồn</button>
+      <button class="btn" id="khoBtn" title="Kho tri thức của tôi">📚 Kho</button>
       <button class="btn" id="cfgBtn" title="Cấu hình, xuất/nhập, đã đọc">⚙</button>
       <button class="btn" id="themeBtn" title="Đổi giao diện sáng/tối">◐</button>
       <button class="btn primary" id="reload">Làm mới</button>
@@ -246,13 +265,21 @@ a.card{
     <div class="rd-head">
       <div class="who" id="rdWho"></div>
       <div class="grow"></div>
+      <button class="btn" id="rdSave" title="Lưu bài này vào kho">☆ Lưu</button>
       <button class="btn" id="rdTr" title="Dịch toàn bộ bài sang tiếng Việt">🌐 Dịch bài</button>
       <a class="btn" id="rdOpen" target="_blank" rel="noopener noreferrer">Trang gốc ↗</a>
       <button class="btn" id="rdClose" title="Đóng (Esc)">✕</button>
     </div>
     <div class="rd-body" id="rdBody"></div>
+    <div class="rd-tools" id="rdTools" hidden style="padding:12px 30px 16px">
+      <input id="rdTags" placeholder="Thẻ, cách nhau bằng dấu phẩy — vd: thuật-toán, đọc-sau">
+      <input id="rdNote" placeholder="Ghi chú của bạn về bài này">
+      <button class="btn" id="rdSaveMeta">Lưu ghi chú</button>
+    </div>
   </aside>
 </div>
+
+<button id="hlBtn">✎ Tô sáng</button>
 
 <dialog id="addDlg">
   <form method="dialog">
@@ -293,9 +320,12 @@ a.card{
       Mở tab nào mới tải nguồn của tab đó, nhanh hơn hẳn khi bật nhiều nguồn.
       Riêng tab <b>Tất cả</b> thì vẫn lấy hết.
     </p>
-    <div id="cfgStat" style="font-size:13px;color:var(--muted);margin-bottom:14px"></div>
+    <div id="cfgStat" style="font-size:13px;color:var(--muted);margin-bottom:6px"></div>
+    <div id="cfgKhoStat" style="font-size:13px;color:var(--muted);margin-bottom:14px"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn" id="cfgExport">⬇ Xuất file cấu hình</button>
+      <button class="btn" id="cfgKho">⬇ Xuất kho ra Markdown (.zip)</button>
+      <button class="btn" id="cfgPersist">🔒 Xin lưu trữ bền vững</button>
       <button class="btn" id="cfgImport">⬆ Nhập từ file</button>
       <button class="btn" id="cfgClearRead">Xoá dấu đã đọc</button>
       <button class="btn" id="cfgReset">Khôi phục mặc định</button>
@@ -378,6 +408,24 @@ const SOURCES = [
     url:"https://fs.blog/feed/" },
   { id:'nautilus2', name:"Nautilus", pack:'tech', group:'bio', color:'#155e75', enabled:true,
     url:"https://nautil.us/feed/" },
+
+  /* --- Blog của chính các nhà khoa học đương đại: thống kê, thuật toán, toán học.
+         Đây là "chân dung tự họa" — họ viết về cách nghĩ, cách làm việc, đời sống
+         nghiên cứu của mình. Toàn feed thật nên link dẫn thẳng tới bài gốc. --- */
+  { id:'xian', name:"Xi'an's Og (Christian Robert · thống kê Bayes)", pack:'tech', group:'bio', color:'#1d4ed8', enabled:true,
+    url:"https://xianblog.wordpress.com/feed/" },
+  { id:'fharrell', name:"Frank Harrell · Statistical Thinking (Vanderbilt)", pack:'tech', group:'bio', color:'#0f766e', enabled:true,
+    url:"https://www.fharrell.com/index.xml" },
+  { id:'lemire', name:"Daniel Lemire (thuật toán · hiệu năng)", pack:'tech', group:'bio', color:'#b45309', enabled:true,
+    url:"https://lemire.me/blog/feed/" },
+  { id:'mitzen', name:"My Biased Coin (Michael Mitzenmacher · Harvard)", pack:'tech', group:'bio', color:'#a16207', enabled:true,
+    url:"https://mybiasedcoin.blogspot.com/feeds/posts/default" },
+  { id:'boaz', name:"Windows on Theory (Boaz Barak · Harvard)", pack:'tech', group:'bio', color:'#7c3aed', enabled:true,
+    url:"https://windowsontheory.org/feed/" },
+  { id:'gowers', name:"Gowers's Weblog (huy chương Fields)", pack:'tech', group:'bio', color:'#be185d', enabled:true,
+    url:"https://gowers.wordpress.com/feed/" },
+  { id:'jdcook', name:"John D. Cook (toán ứng dụng)", pack:'tech', group:'bio', color:'#334155', enabled:true,
+    url:"https://www.johndcook.com/blog/feed/" },
 
   /* Tâm lý · Năng suất · Ghi nhớ · Cách học */
   { id:'gtd', name:"Getting Things Done (David Allen)", pack:'tech', group:'learn', color:'#0f766e', enabled:true,
@@ -513,17 +561,17 @@ const SOURCES = [
     url:"https://stackoverflow.blog/feed/" },
   { id:'tdcd', name:"Tôi đi code dạo (VN)", pack:'tech', group:'algo', lang:'vi', color:'#16a34a', enabled:false,
     url:"https://toidicodedao.com/feed/" },
-  { id:'cplx', name:"Computational Complexity", pack:'tech', group:'algo', color:'#1d4ed8', enabled:false,
+  { id:'cplx', name:"Computational Complexity", pack:'tech', group:'algo', color:'#1d4ed8', enabled:true,
     url:"https://blog.computationalcomplexity.org/feeds/posts/default" },
-  { id:'shtetl', name:"Shtetl-Optimized (Aaronson)", pack:'tech', group:'algo', color:'#be185d', enabled:false,
+  { id:'shtetl', name:"Shtetl-Optimized (Aaronson)", pack:'tech', group:'algo', color:'#be185d', enabled:true,
     url:"https://scottaaronson.blog/?feed=rss2" },
   { id:'jkun', name:"Math ∩ Programming", pack:'tech', group:'algo', color:'#047857', enabled:false,
     url:"https://www.jeremykun.com/index.xml" },
   { id:'arxivds', name:"arXiv cs.DS (bài mới)", pack:'tech', group:'algo', color:'#7f1d1d', enabled:false,
     url:"https://rss.arxiv.org/rss/cs.DS" },
-  { id:'tao', name:"Terence Tao — What's new", pack:'tech', group:'math', color:'#0f172a', enabled:false,
+  { id:'tao', name:"Terence Tao — What's new", pack:'tech', group:'math', color:'#0f172a', enabled:true,
     url:"https://terrytao.wordpress.com/feed/" },
-  { id:'kalai', name:"Combinatorics and more", pack:'tech', group:'math', color:'#a16207', enabled:false,
+  { id:'kalai', name:"Combinatorics and more", pack:'tech', group:'math', color:'#a16207', enabled:true,
     url:"https://gilkalai.wordpress.com/feed/" },
   { id:'arxivco', name:"arXiv math.CO (bài mới)", pack:'tech', group:'math', color:'#7f1d1d', enabled:false,
     url:"https://rss.arxiv.org/rss/math.CO" },
@@ -535,7 +583,7 @@ const SOURCES = [
     url:"https://pudding.cool/rss.xml" },
   { id:'rblog', name:"R-bloggers", pack:'tech', group:'stat', color:'#1e40af', enabled:false,
     url:"https://www.r-bloggers.com/feed/" },
-  { id:'gelman', name:"Statistical Modeling (Gelman)", pack:'tech', group:'stat', color:'#4d7c0f', enabled:false,
+  { id:'gelman', name:"Statistical Modeling (Gelman)", pack:'tech', group:'stat', color:'#4d7c0f', enabled:true,
     url:"https://statmodeling.stat.columbia.edu/feed/" },
   { id:'tinhte', name:"Tinh Tế", pack:'tech', group:'vn', lang:'vi', color:'#e0245e', enabled:false,
     url:"https://tinhte.vn/rss" },
@@ -653,7 +701,8 @@ const $ = s => document.querySelector(s);
 const state = {
   sources: SOURCES.map(s => ({...s, group: s.group || 'dev', on: s.enabled !== false, status:'idle', count:0 })),
   items: [], query:'', sort:'time', pack:PACKS[0].id, group:'all', expand:false, translate:false, loading:false,
-  read: new Set(), unreadOnly:false, persist:true, lazy:false, total:0, done:0, queue:null
+  read: new Set(), unreadOnly:false, persist:true, lazy:false, total:0, done:0, queue:null,
+  kho: new Map(), khoView:false, khoTag:''
 };
 
 /* ============================================================
@@ -1094,6 +1143,7 @@ function renderTabs(){
 const CHIP_PREVIEW = 8;
 
 function renderChips(){
+  if (state.khoView) return;      // đang ở kho thì hàng chip là danh sách thẻ
   renderTabs();
   const list   = state.sources.filter(inGroup);
   const shown  = state.expand ? list : list.filter(s => s.on).slice(0, CHIP_PREVIEW);
@@ -1123,6 +1173,7 @@ const skeletonHtml = (n=6) => Array.from({length:n}, () =>
 function renderSkeleton(){ $('#list').innerHTML = skeletonHtml(); }
 
 function render(){
+  if (state.khoView) return renderKho();
   const items = visibleItems();
   const errs = state.sources.filter(s => s.on && s.status==='err' && inGroup(s));
   const n = $('#notice');
@@ -1180,6 +1231,7 @@ function render(){
           <span class="src" style="color:${i.color}"><span class="sq" style="background:${i.color}"></span>${esc(i.srcName)}</span>
           <span class="sep">•</span><span>${esc(timeAgo(i.date))}</span>
           <span class="sep">•</span><span>${esc(new URL(i.link).hostname.replace(/^www\./,''))}</span>
+          <span class="sep">•</span><span class="save${daLuu(i.link)?' on':''}" role="button" data-save="${esc(i.link)}">${daLuu(i.link)?'★ đã lưu':'☆ Lưu'}</span>
           ${outUi}${trUi}
         </div>
       </article>
@@ -1309,6 +1361,7 @@ function openReader(item){
   $('#rdBody').innerHTML = `<h1 class="t">${esc(item.tShow && item.tTitle ? item.tTitle : item.title)}</h1>
     <p class="meta">${esc(item.srcName)} · ${esc(timeAgo(item.date))}</p>` + skeletonHtml(3);
   loadReaderContent(item);
+  syncReaderSave();
   render();
 }
 
@@ -1318,6 +1371,8 @@ function openReader(item){
    3) cuối cùng mới tải trang gốc qua cầu nối rồi bóc phần thân bài
    Trả về chuỗi HTML đã dọn sạch, hoặc ném lỗi. */
 async function articleHtml(item){
+  const luu = state.kho && state.kho.get(item.link);
+  if (luu && luu.html) return luu.html;          // bản trong kho, kèm vệt tô sáng
   if (artCache.has(item.link)) return artCache.get(item.link);
 
   const pre = await prebuiltHtml(item);
@@ -1410,6 +1465,8 @@ function prefetchArticle(item){
 
 function closeReader(){
   rdItem = null;
+  $('#rdTools').hidden = true;
+  $('#hlBtn').style.display = 'none';
   $('#rdWrap').hidden = true;
   document.body.style.overflow = '';
   $('#rdBody').innerHTML = '';
@@ -1460,6 +1517,249 @@ function switchPack(id){
     if (todo.length === state.sources.filter(s => s.on && inPack(s)).length) refresh();
     else todo.filter(s => s.status === 'idle').forEach(loadOne);
   }
+}
+
+/* ============================================================
+   KHO TRI THỨC CÁ NHÂN
+   Lưu toàn văn bài vào IndexedDB (chứa được hàng chục MB, khác localStorage
+   chỉ ~5MB), kèm thẻ, ghi chú và các đoạn tô sáng. Tất cả nằm trong máy bạn.
+   ============================================================ */
+const KHO_DB = 'tin-kho-v1', KHO_STORE = 'bai';
+let khoDbP = null;
+
+function khoDb(){
+  if (khoDbP) return khoDbP;
+  khoDbP = new Promise((res, rej) => {
+    let rq;
+    try{ rq = indexedDB.open(KHO_DB, 1); }catch(e){ return rej(e); }
+    rq.onupgradeneeded = () => {
+      const db = rq.result;
+      if (!db.objectStoreNames.contains(KHO_STORE)) db.createObjectStore(KHO_STORE, { keyPath:'link' });
+    };
+    rq.onsuccess = () => res(rq.result);
+    rq.onerror  = () => rej(rq.error);
+  });
+  return khoDbP;
+}
+
+function khoTx(mode, fn){
+  return khoDb().then(db => new Promise((res, rej) => {
+    const t = db.transaction(KHO_STORE, mode);
+    const r = fn(t.objectStore(KHO_STORE));
+    t.oncomplete = () => res(r && r.result !== undefined ? r.result : r);
+    t.onerror    = () => rej(t.error);
+  }));
+}
+const khoPut = rec  => khoTx('readwrite', st => st.put(rec));
+const khoDel = link => khoTx('readwrite', st => st.delete(link));
+const khoAll = ()   => khoTx('readonly',  st => st.getAll());
+
+/* nạp toàn kho vào bộ nhớ lúc mở trang để giao diện phản hồi tức thì */
+async function khoLoad(){
+  try{
+    const all = await khoAll();
+    state.kho = new Map((all || []).map(r => [r.link, r]));
+  }catch(e){ state.kho = new Map(); }
+}
+
+const daLuu = link => state.kho && state.kho.has(link);
+
+/* Lưu một bài: cố lấy toàn văn, không có thì lưu tóm tắt. */
+/* Trình duyệt có thể tự dọn IndexedDB khi máy thiếu chỗ. Xin "lưu trữ bền vững"
+   thì nó cam kết không xoá — chỉ xin được sau một thao tác của người dùng, nên
+   gọi ngay lần bấm Lưu đầu tiên. */
+let daXinBenVung = false;
+async function xinLuuBenVung(){
+  if (daXinBenVung || !navigator.storage || !navigator.storage.persist) return;
+  daXinBenVung = true;
+  try{
+    if (!(await navigator.storage.persisted())) await navigator.storage.persist();
+  }catch(e){}
+}
+
+async function khoLuu(item, htmlSan){
+  xinLuuBenVung();
+  let html = htmlSan || '';
+  if (!html){
+    try{ html = await articleHtml(item); }
+    catch(e){ html = `<p>${esc(item.summary || '')}</p>`; }
+  }
+  const cu = state.kho.get(item.link);
+  const rec = {
+    link: item.link,
+    title: item.tShow && item.tTitle ? item.tTitle : item.title,
+    titleGoc: item.title,
+    srcName: item.srcName, color: item.color,
+    date: item.date ? item.date.toISOString() : null,
+    savedAt: cu ? cu.savedAt : Date.now(),
+    html,
+    tags: cu ? cu.tags : [],
+    note: cu ? cu.note : ''
+  };
+  state.kho.set(rec.link, rec);
+  await khoPut(rec);
+  return rec;
+}
+
+async function khoBo(link){
+  state.kho.delete(link);
+  try{ await khoDel(link); }catch(e){}
+}
+
+/* Danh sách thẻ đang có, kèm số bài */
+function khoTags(){
+  const m = new Map();
+  for (const r of state.kho.values())
+    for (const t of r.tags || []) m.set(t, (m.get(t) || 0) + 1);
+  return [...m.entries()].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0],'vi'));
+}
+
+/* Bài trong kho, đã lọc theo thẻ và từ khoá (tìm cả trong toàn văn) */
+function khoItems(){
+  const q = state.query.trim().toLowerCase();
+  let out = [...state.kho.values()];
+  if (state.khoTag) out = out.filter(r => (r.tags || []).includes(state.khoTag));
+  if (q) out = out.filter(r =>
+    (r.title + ' ' + (r.note||'') + ' ' + (r.tags||[]).join(' ') + ' ' + stripHtml(r.html)).toLowerCase().includes(q));
+  const key = { time:(a,b)=>b.savedAt-a.savedAt, source:(a,b)=>a.srcName.localeCompare(b.srcName,'vi'),
+                title:(a,b)=>a.title.localeCompare(b.title,'vi') }[state.sort] || ((a,b)=>b.savedAt-a.savedAt);
+  return out.sort(key);
+}
+
+/* ---------- xuất ra Markdown, đóng gói .zip ---------- */
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let i = 0; i < 256; i++){
+    let c = i;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[i] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(buf){
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+/* ZIP không nén (phương thức store) — đủ dùng và không cần thư viện ngoài */
+function taoZip(files){
+  const enc = new TextEncoder();
+  const parts = [], central = [];
+  let offset = 0;
+  const u16 = n => [n & 255, (n >>> 8) & 255];
+  const u32 = n => [n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255];
+
+  for (const f of files){
+    const name = enc.encode(f.name);
+    const data = enc.encode(f.body);
+    const crc  = crc32(data);
+    const local = new Uint8Array([
+      ...u32(0x04034b50), ...u16(20), ...u16(0), ...u16(0), ...u16(0), ...u16(0),
+      ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(name.length), ...u16(0)
+    ]);
+    parts.push(local, name, data);
+    central.push(new Uint8Array([
+      ...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0), ...u16(0), ...u16(0), ...u16(0),
+      ...u32(crc), ...u32(data.length), ...u32(data.length),
+      ...u16(name.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(offset)
+    ]), name);
+    offset += local.length + name.length + data.length;
+  }
+  const cdStart = offset;
+  let cdSize = 0;
+  for (const c of central) cdSize += c.length;
+  const end = new Uint8Array([
+    ...u32(0x06054b50), ...u16(0), ...u16(0),
+    ...u16(files.length), ...u16(files.length), ...u32(cdSize), ...u32(cdStart), ...u16(0)
+  ]);
+  return new Blob([...parts, ...central, end], { type:'application/zip' });
+}
+
+/* Đổi HTML bài viết sang Markdown, giữ nguyên các đoạn đã tô sáng */
+function htmlSangMd(html){
+  const d = document.createElement('div');
+  d.innerHTML = html;
+  const đi = el => {
+    let out = '';
+    for (const n of el.childNodes){
+      if (n.nodeType === 3){ out += n.nodeValue.replace(/\s+/g,' '); continue; }
+      if (n.nodeType !== 1) continue;
+      const tag = n.tagName.toLowerCase();
+      const trong = đi(n);
+      if (tag === 'p')                       out += '\n\n' + trong;
+      else if (/^h[1-6]$/.test(tag))         out += '\n\n' + '#'.repeat(+tag[1] + 1) + ' ' + trong;
+      else if (tag === 'li')                 out += '\n- ' + trong;
+      else if (tag === 'ul' || tag === 'ol') out += '\n' + trong + '\n';
+      else if (tag === 'blockquote')         out += '\n\n> ' + trong.trim().replace(/\n/g,'\n> ');
+      else if (tag === 'pre')                out += '\n\n```\n' + n.textContent.trim() + '\n```';
+      else if (tag === 'code')               out += '`' + trong + '`';
+      else if (tag === 'strong' || tag === 'b') out += '**' + trong + '**';
+      else if (tag === 'em' || tag === 'i')  out += '*' + trong + '*';
+      else if (tag === 'a')                  out += `[${trong}](${n.getAttribute('href') || ''})`;
+      else if (tag === 'img')                out += `\n\n![${n.getAttribute('alt') || ''}](${n.getAttribute('src') || ''})`;
+      else if (tag === 'br')                 out += '\n';
+      else if (tag === 'mark'){
+        const gc = n.getAttribute('data-note');
+        out += '==' + trong + '==' + (gc ? ` ^[${gc}]` : '');
+      }
+      else out += trong;
+    }
+    return out;
+  };
+  return đi(d).replace(/\n{3,}/g, '\n\n').trim();
+}
+
+const tenFileAnToan = s => (s || 'bai')
+  .normalize('NFD').replace(/[̀-ͯ]/g,'')
+  .replace(/[^\w\s-]/g,'').trim().replace(/\s+/g,'-').slice(0,70) || 'bai';
+
+function recSangMd(r){
+  const d = r.date ? new Date(r.date) : null;
+  const marks = [];
+  const tmp = document.createElement('div'); tmp.innerHTML = r.html;
+  tmp.querySelectorAll('mark').forEach(m => marks.push({
+    text: m.textContent.trim(), note: m.getAttribute('data-note') || ''
+  }));
+
+  return [
+    '---',
+    `title: ${JSON.stringify(r.title)}`,
+    `source: ${JSON.stringify(r.srcName)}`,
+    `url: ${r.link}`,
+    d ? `published: ${d.toISOString().slice(0,10)}` : null,
+    `saved: ${new Date(r.savedAt).toISOString().slice(0,10)}`,
+    (r.tags && r.tags.length) ? `tags: [${r.tags.join(', ')}]` : null,
+    '---',
+    '',
+    `# ${r.title}`,
+    '',
+    `[${r.srcName}](${r.link})`,
+    r.note ? `\n> **Ghi chú của tôi**\n> ${r.note.replace(/\n/g,'\n> ')}` : '',
+    marks.length ? '\n## Đoạn đã tô sáng\n' + marks.map(m =>
+      `- ${m.text}${m.note ? `\n  - _${m.note}_` : ''}`).join('\n') : '',
+    '\n---\n',
+    htmlSangMd(r.html)
+  ].filter(x => x !== null && x !== '').join('\n');
+}
+
+function khoXuatMd(){
+  const list = khoItems();
+  if (!list.length){ alert('Kho đang trống.'); return; }
+  const files = list.map((r, i) => ({
+    name: `${String(i+1).padStart(3,'0')}-${tenFileAnToan(r.title)}.md`,
+    body: recSangMd(r)
+  }));
+  files.push({ name:'000-muc-luc.md', body:
+    '# Kho tri thức\n\n' + list.map((r,i) =>
+      `${i+1}. [${r.title}](${String(i+1).padStart(3,'0')}-${tenFileAnToan(r.title)}.md) — ${r.srcName}` +
+      ((r.tags||[]).length ? ` · ${r.tags.map(t=>'#'+t).join(' ')}` : '')).join('\n') });
+
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(taoZip(files));
+  a.download = `kho-tri-thuc-${new Date().toISOString().slice(0,10)}.zip`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 
 /* ---------- sự kiện ---------- */
@@ -1572,6 +1872,21 @@ $('#unreadBtn').addEventListener('click', () => {
 });
 
 /* ---- hộp cấu hình ---- */
+async function khoTinhTrang(){
+  const n = state.kho ? state.kho.size : 0;
+  let them = '';
+  try{
+    if (navigator.storage && navigator.storage.estimate){
+      const e = await navigator.storage.estimate();
+      const mb = (e.usage || 0) / 1048576;
+      const ben = navigator.storage.persisted ? await navigator.storage.persisted() : false;
+      them = ` · ${mb.toFixed(1)} MB · lưu trữ bền vững: <b>${ben ? 'có' : 'chưa'}</b>`;
+    }
+  }catch(e){}
+  const el = $('#cfgKhoStat');
+  if (el) el.innerHTML = `Kho tri thức: <b>${n}</b> bài${them}`;
+}
+
 function cfgStatus(){
   $('#cfgStat').innerHTML = HAS_STORAGE
     ? `Đang nhớ <b>${state.read.size}</b> bài đã đọc và
@@ -1583,7 +1898,7 @@ $('#cfgBtn').addEventListener('click', () => {
   $('#cfgPersist').checked = state.persist && HAS_STORAGE;
   $('#cfgPersist').disabled = !HAS_STORAGE;
   $('#cfgLazy').checked = state.lazy;
-  cfgStatus(); $('#cfgDlg').showModal();
+  cfgStatus(); khoTinhTrang(); $('#cfgDlg').showModal();
 });
 $('#cfgLazy').addEventListener('change', e => {
   state.lazy = e.target.checked;
@@ -1607,6 +1922,16 @@ $('#cfgExport').addEventListener('click', () => {
   a.download = 'trinh-doc-tin-cau-hinh.json';
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+});
+$('#cfgKho').addEventListener('click', khoXuatMd);
+$('#cfgPersist').addEventListener('click', async () => {
+  const b = $('#cfgPersist');
+  if (!navigator.storage || !navigator.storage.persist){ b.textContent = 'Trình duyệt không hỗ trợ'; return; }
+  try{
+    const ok = await navigator.storage.persist();
+    b.textContent = ok ? '🔒 Đã bật bền vững ✓' : 'Trình duyệt từ chối — dùng thêm ít lâu rồi thử lại';
+  }catch(e){ b.textContent = 'Không xin được'; }
+  khoTinhTrang();
 });
 $('#cfgImport').addEventListener('click', () => $('#cfgFile').click());
 $('#cfgFile').addEventListener('change', async e => {
@@ -1680,12 +2005,166 @@ $('#addDlg').addEventListener('close', () => {
   renderChips(); saveState(); loadOne(s);
 });
 
+/* ---------- giao diện Kho ---------- */
+
+function renderKho(){
+  const list = khoItems();
+  const tags = khoTags();
+
+  $('#tabs').innerHTML = '';
+  $('#chips').innerHTML =
+    `<button class="chip ${state.khoTag ? '' : 'on'}" data-tag="">Tất cả <span class="n">${state.kho.size}</span></button>` +
+    tags.map(([t, n]) =>
+      `<button class="chip ${state.khoTag === t ? 'on' : ''}" data-tag="${esc(t)}">${esc(t)} <span class="n">${n}</span></button>`
+    ).join('');
+  $('#chips').className = 'tagbar';
+
+  $('#info').textContent = state.kho.size
+    ? `${list.length}/${state.kho.size} bài trong kho`
+    : 'Kho đang trống';
+  $('#notice').hidden = true;
+
+  if (!list.length){
+    $('#list').innerHTML = `<div class="empty">${state.kho.size
+      ? 'Không có bài nào khớp bộ lọc.'
+      : 'Chưa lưu bài nào.<br>Bấm <b>☆ Lưu</b> ở cuối mỗi bài để cất vào đây — kể cả khi báo gốc xoá bài sau này.'}</div>`;
+    return;
+  }
+
+  $('#list').innerHTML = list.map(r => `
+    <a class="card" href="${esc(r.link)}" data-k="${esc(r.link)}" target="_blank" rel="noopener noreferrer">
+      <article>
+        <h2>${esc(r.title)}</h2>
+        ${r.note ? `<p class="sum">📝 ${esc(r.note)}</p>` : ''}
+        <div class="foot">
+          <span class="src" style="color:${r.color}"><span class="sq" style="background:${r.color}"></span>${esc(r.srcName)}</span>
+          <span class="sep">•</span><span>lưu ${esc(timeAgo(new Date(r.savedAt)))}</span>
+          ${(r.tags||[]).length ? `<span class="sep">•</span><span class="tags">${
+            r.tags.map(t => `<span class="tg">${esc(t)}</span>`).join('')}</span>` : ''}
+          <span class="sep">•</span><span class="save on" role="button" data-save="${esc(r.link)}">★ bỏ lưu</span>
+        </div>
+      </article>
+    </a>`).join('');
+}
+
+function setKhoView(on){
+  state.khoView = on;
+  state.khoTag = '';
+  $('#khoBtn').classList.toggle('primary', on);
+  $('#khoBtn').textContent = on ? '📚 Đang xem kho' : '📚 Kho';
+  $('#tabs').hidden = on;
+  $('#unreadBtn').hidden = on;
+  if (!on) $('#chips').className = 'chips';
+  renderChips(); render();
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+
+$('#khoBtn').addEventListener('click', () => setKhoView(!state.khoView));
+
+/* bấm nút lưu trên thẻ tin */
+$('#list').addEventListener('click', async e => {
+  const b = e.target.closest('[data-save]');
+  if (!b) return;
+  e.preventDefault(); e.stopPropagation();
+  const link = b.dataset.save;
+  if (daLuu(link)){ await khoBo(link); }
+  else {
+    const item = state.items.find(x => x.link === link);
+    if (!item) return;
+    b.textContent = '… đang lưu';
+    await khoLuu(item);
+  }
+  renderChips(); render();
+}, true);
+
+/* lọc theo thẻ */
+$('#chips').addEventListener('click', e => {
+  const t = e.target.closest('[data-tag]');
+  if (!t || !state.khoView) return;
+  state.khoTag = t.dataset.tag;
+  renderKho();
+});
+
+/* ---------- lưu / thẻ / ghi chú trong khung đọc ---------- */
+function syncReaderSave(){
+  if (!rdItem) return;
+  const rec = state.kho.get(rdItem.link);
+  const b = $('#rdSave');
+  b.classList.toggle('primary', !!rec);
+  b.textContent = rec ? '★ Đã lưu' : '☆ Lưu';
+  $('#rdTools').hidden = !rec;
+  if (rec){
+    $('#rdTags').value = (rec.tags || []).join(', ');
+    $('#rdNote').value = rec.note || '';
+  }
+}
+
+$('#rdSave').addEventListener('click', async () => {
+  if (!rdItem) return;
+  if (daLuu(rdItem.link)) await khoBo(rdItem.link);
+  else {
+    $('#rdSave').textContent = '… đang lưu';
+    const box = $('#rdBody').querySelector('div');
+    await khoLuu(rdItem, box ? box.innerHTML : '');
+  }
+  syncReaderSave(); renderChips(); render();
+});
+
+$('#rdSaveMeta').addEventListener('click', async () => {
+  if (!rdItem) return;
+  const rec = state.kho.get(rdItem.link); if (!rec) return;
+  rec.tags = $('#rdTags').value.split(',').map(t => t.trim().replace(/\s+/g,'-')).filter(Boolean);
+  rec.note = $('#rdNote').value.trim();
+  await khoPut(rec);
+  $('#rdSaveMeta').textContent = 'Đã lưu ✓';
+  setTimeout(() => { $('#rdSaveMeta').textContent = 'Lưu ghi chú'; }, 1500);
+  renderChips(); render();
+});
+
+/* ---------- tô sáng ---------- */
+let hlRange = null;
+$('#rdBody').addEventListener('mouseup', () => {
+  const sel = window.getSelection();
+  const txt = sel && String(sel).trim();
+  const btn = $('#hlBtn');
+  if (!txt || txt.length < 3 || !rdItem){ btn.style.display = 'none'; hlRange = null; return; }
+  const r = sel.getRangeAt(0);
+  if (!$('#rdBody').contains(r.commonAncestorContainer)){ btn.style.display = 'none'; return; }
+  hlRange = r.cloneRange();
+  const box = r.getBoundingClientRect();
+  btn.style.display = 'block';
+  btn.style.left = Math.max(8, Math.min(box.left, innerWidth - 130)) + 'px';
+  btn.style.top  = Math.max(8, box.top - 42) + 'px';
+});
+document.addEventListener('mousedown', e => {
+  if (e.target.id !== 'hlBtn') $('#hlBtn').style.display = 'none';
+});
+
+$('#hlBtn').addEventListener('click', async () => {
+  if (!hlRange || !rdItem) return;
+  $('#hlBtn').style.display = 'none';
+  const chu = String(hlRange).trim();
+  const gc = prompt('Ghi chú cho đoạn này (để trống cũng được):', '') || '';
+  try{
+    const m = document.createElement('mark');
+    if (gc.trim()) m.setAttribute('data-note', gc.trim());
+    m.appendChild(hlRange.extractContents());
+    hlRange.insertNode(m);
+  }catch(e){ return; }
+  window.getSelection().removeAllRanges();
+  hlRange = null;
+  const box = $('#rdBody').querySelector('div');       // lưu luôn cả vệt tô
+  await khoLuu(rdItem, box ? box.innerHTML : '');
+  syncReaderSave(); renderChips(); render();
+});
+
 /* ---------- khởi động ---------- */
 const savedRaw = HAS_STORAGE ? (() => { try{ return localStorage.getItem(STORE_KEY); }catch(e){ return null; } })() : null;
 if (!savedRaw && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches)
   document.documentElement.setAttribute('data-theme','dark');   // chưa có cấu hình -> theo hệ thống
 loadState();
 renderPacks();
+khoLoad().then(() => { renderChips(); render(); });
 syncUi();
 if (state.translate) $('#trBtn').title = 'Đang tự động dịch bài tiếng nước ngoài — bấm để tắt';
 
