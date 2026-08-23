@@ -25,13 +25,16 @@ const MAX_SHARD      = 1500 * 1024; // trần mỗi file nguồn
    Chạy trên máy GitHub nên không vướng CORS. Bài đã bóc lần trước được dùng lại,
    nên mỗi lần chạy chỉ phải tải những bài thật sự mới. Tắt bằng EXTRACT=0. */
 const EXTRACT        = process.env.EXTRACT !== '0';
-const EXTRACT_MAX    = Number(process.env.EXTRACT_MAX || 250);  // số bài mới tối đa mỗi lần chạy
-const EXTRACT_CONC   = 6;
+const EXTRACT_MAX    = Number(process.env.EXTRACT_MAX || 600);  // số bài mới tối đa mỗi lần chạy
+const EXTRACT_PER_SRC = Number(process.env.EXTRACT_PER_SRC || 15); // trần mỗi nguồn, để nguồn nào cũng có phần
+const EXTRACT_CONC   = 8;
 const PAGE_TIMEOUT   = 15000;
 const MAX_PAGE_BYTES = 3 * 1024 * 1024;
 const TIMEOUT_MS     = 20000;
 const CONCURRENCY    = 8;
 const UA = 'Mozilla/5.0 (compatible; tin-tuc-reader/1.0; +https://github.com)';
+const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+                   '(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
 
 /* ---------- lấy danh sách nguồn từ index.html ---------- */
 function readSources(html){
@@ -155,11 +158,16 @@ async function fetchPage(url){
   try{
     const r = await fetch(url, {
       signal: ctl.signal, redirect: 'follow',
-      headers: { 'user-agent': UA, accept: 'text/html,application/xhtml+xml' }
+      headers: {
+        // nhiều báo chặn thẳng các user-agent lạ, nên khai báo như trình duyệt thật
+        'user-agent': BROWSER_UA,
+        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'accept-language': 'vi,en;q=0.9'
+      }
     });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const type = r.headers.get('content-type') || '';
-    if (!/html/i.test(type)) throw new Error('không phải HTML');
+    if (type && !/html|xml|text\/plain/i.test(type)) throw new Error('không phải HTML');
     const len = Number(r.headers.get('content-length') || 0);
     if (len > MAX_PAGE_BYTES) throw new Error('trang quá nặng');
     const body = await r.text();
@@ -190,8 +198,27 @@ async function extractMissing(items, prev){
   }
   if (!EXTRACT || !todo.length) return { tried:0, ok:0, reused: items.filter(i => i._full).length };
 
-  const queue = todo.slice(0, EXTRACT_MAX);
-  console.log(`\nBóc nội dung trang gốc: ${queue.length} bài mới` +
+  /* Xếp hàng luân phiên giữa các nguồn. Nếu cứ lấy theo thứ tự thời gian thì vài nguồn
+     đăng dày sẽ ăn hết ngân sách, còn nguồn thưa bài (VD các luồng theo tên người)
+     không bao giờ tới lượt — đúng cái đã xảy ra ở lần chạy trước. */
+  const perSrc = new Map();
+  for (const it of todo){
+    if (!perSrc.has(it.i)) perSrc.set(it.i, []);
+    const arr = perSrc.get(it.i);
+    if (arr.length < EXTRACT_PER_SRC) arr.push(it);
+  }
+  const queue = [];
+  for (let round = 0; queue.length < EXTRACT_MAX; round++){
+    let added = false;
+    for (const arr of perSrc.values()){
+      if (!arr[round]) continue;
+      queue.push(arr[round]); added = true;
+      if (queue.length >= EXTRACT_MAX) break;
+    }
+    if (!added) break;
+  }
+
+  console.log(`\nBóc nội dung trang gốc: ${queue.length} bài mới từ ${perSrc.size} nguồn` +
               (todo.length > queue.length ? ` (còn ${todo.length - queue.length} bài để lần sau)` : ''));
   let ok = 0;
   const worker = async () => {
