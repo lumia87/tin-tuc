@@ -369,23 +369,49 @@ const SOURCES = [
   { id:'nautilus2', name:"Nautilus", pack:'tech', group:'bio', color:'#155e75', enabled:true,
     url:"https://nautil.us/feed/" },
 
-  /* Tâm lý · Năng suất · Ghi nhớ · Cách học */
+  /* Tâm lý · Năng suất · Ghi nhớ · Cách học · Tư duy */
   { id:'gtd', name:"Getting Things Done (David Allen)", pack:'tech', group:'learn', color:'#0f766e', enabled:true,
     url:"https://gettingthingsdone.com/feed/" },
   { id:'calnewport', name:"Cal Newport (Deep Work)", pack:'tech', group:'learn', color:'#1e3a8a', enabled:true,
     url:"https://calnewport.com/feed/" },
   { id:'jclear', name:"James Clear (Atomic Habits)", pack:'tech', group:'learn', color:'#b45309', enabled:true,
     url:"https://jamesclear.com/feed/" },
-  { id:'g_kahneman', name:"Chủ đề: Kahneman · Tversky", pack:'tech', group:'learn', color:'#7c3aed', enabled:true,
-    url:"https://news.google.com/rss/search?q=%22Daniel+Kahneman%22+OR+%22Amos+Tversky%22&hl=en-US&gl=US&ceid=US:en" },
+
+  /* Chuyên gia: Kahneman, Goleman, Feynman, Dweck… */
+  { id:'g_kahneman', name:"Chủ đề: Kahneman · Tversky (tư duy)", pack:'tech', group:'learn', color:'#7c3aed', enabled:true,
+    url:"https://news.google.com/rss/search?q=%22Daniel+Kahneman%22+OR+%22Amos+Tversky%22+OR+%22Thinking+Fast+and+Slow%22+OR+prospect+theory&hl=en-US&gl=US&ceid=US:en" },
   { id:'g_goleman', name:"Chủ đề: Daniel Goleman · EQ", pack:'tech', group:'learn', color:'#db2777', enabled:true,
     url:"https://news.google.com/rss/search?q=%22Daniel+Goleman%22+OR+%22emotional+intelligence%22&hl=en-US&gl=US&ceid=US:en" },
+  { id:'g_feynman', name:"Chủ đề: Feynman (cách học · vật lý)", pack:'tech', group:'learn', color:'#ea580c', enabled:true,
+    url:"https://news.google.com/rss/search?q=%22Richard+Feynman%22+OR+%22Feynman+Technique%22+OR+%22Feynman+learning%22&hl=en-US&gl=US&ceid=US:en" },
   { id:'g_dweck', name:"Chủ đề: Carol Dweck · Growth Mindset", pack:'tech', group:'learn', color:'#0891b2', enabled:true,
     url:"https://news.google.com/rss/search?q=%22Carol+Dweck%22+OR+%22growth+mindset%22&hl=en-US&gl=US&ceid=US:en" },
-  { id:'g_prod', name:"Chủ đề: Deep Work · Habits · GTD", pack:'tech', group:'learn', color:'#334155', enabled:true,
-    url:"https://news.google.com/rss/search?q=%22Cal+Newport%22+OR+%22James+Clear%22+OR+%22David+Allen%22+OR+%22atomic+habits%22+OR+%22deep+work%22+OR+GTD&hl=en-US&gl=US&ceid=US:en" },
+
+  /* Cách học · Ghi nhớ · Tư duy phản biện */
+  { id:'g_howlearn', name:"Chủ đề: How to learn · Learning science", pack:'tech', group:'learn', color:'#2563eb', enabled:true,
+    url:"https://news.google.com/rss/search?q=%22how+to+learn%22+OR+%22learning+how+to+learn%22+OR+%22spaced+repetition%22+OR+metacognition&hl=en-US&gl=US&ceid=US:en" },
+  { id:'g_memory', name:"Chủ đề: Memory · Ghi nhớ · Spaced repetition", pack:'tech', group:'learn', color:'#9333ea', enabled:true,
+    url:"https://news.google.com/rss/search?q=%22spaced+repetition%22+OR+%22active+recall%22+OR+%22memory+techniques%22+OR+Anki+OR+mnemonics&hl=en-US&gl=US&ceid=US:en" },
+  { id:'g_think', name:"Chủ đề: Critical thinking · Mental models", pack:'tech', group:'learn', color:'#0f766e', enabled:true,
+    url:"https://news.google.com/rss/search?q=%22mental+models%22+OR+%22critical+thinking%22+OR+%22first+principles%22+OR+%22cognitive+bias%22&hl=en-US&gl=US&ceid=US:en" },
+  { id:'g_prod', name:"Chủ đề: Deep Work · Habits · Năng suất", pack:'tech', group:'learn', color:'#334155', enabled:true,
+    url:"https://news.google.com/rss/search?q=%22Cal+Newport%22+OR+%22James+Clear%22+OR+%22David+Allen%22+OR+%22atomic+habits%22+OR+%22deep+work%22+OR+%22productivity%22+GTD&hl=en-US&gl=US&ceid=US:en" },
+
+  /* Học Toán · Vật lý · Khoa học */
+  { id:'g_mathlearn', name:"Chủ đề: Học toán · Math learning", pack:'tech', group:'learn', color:'#1d4ed8', enabled:true,
+    url:"https://news.google.com/rss/search?q=%22learn+math%22+OR+%22learning+mathematics%22+OR+%22math+study%22+OR+%22mathematical+thinking%22+OR+Polya&hl=en-US&gl=US&ceid=US:en" },
+  { id:'g_physlearn', name:"Chủ đề: Học vật lý · Physics learning", pack:'tech', group:'learn', color:'#b91c1c', enabled:true,
+    url:"https://news.google.com/rss/search?q=%22learn+physics%22+OR+%22physics+education%22+OR+%22Feynman%22+physics+learning+OR+%22conceptual+physics%22&hl=en-US&gl=US&ceid=US:en" },
+  { id:'g_stemlearn', name:"Chủ đề: STEM study methods", pack:'tech', group:'learn', color:'#047857', enabled:true,
+    url:"https://news.google.com/rss/search?q=%22study+methods%22+STEM+OR+%22deliberate+practice%22+OR+%22problem+solving%22+learning+science&hl=en-US&gl=US&ceid=US:en" },
+
+  /* Tiếng Việt */
   { id:'g_learn_vn', name:"Chủ đề: Phương pháp học · Ghi nhớ (VN)", pack:'tech', group:'learn', lang:'vi', color:'#dc2626', enabled:true,
-    url:"https://news.google.com/rss/search?q=%22ph%C6%B0%C6%A1ng+ph%C3%A1p+h%E1%BB%8Dc%22+OR+%22k%E1%BB%B9+thu%E1%BA%ADt+ghi+nh%E1%BB%9B%22+OR+%22n%C4%83ng+su%E1%BA%A5t+l%C3%A0m+vi%E1%BB%87c%22&hl=vi&gl=VN&ceid=VN:vi" },
+    url:"https://news.google.com/rss/search?q=%22ph%C6%B0%C6%A1ng+ph%C3%A1p+h%E1%BB%8Dc%22+OR+%22k%E1%BB%B9+thu%E1%BA%ADt+ghi+nh%E1%BB%9B%22+OR+%22n%C4%83ng+su%E1%BA%A5t+l%C3%A0m+vi%E1%BB%87c%22+OR+%22t%C6%B0+duy+ph%E1%BA%A3n+bi%E1%BB%87n%22&hl=vi&gl=VN&ceid=VN:vi" },
+  { id:'g_feynman_vn', name:"Chủ đề: Feynman · Cách học (VN)", pack:'tech', group:'learn', lang:'vi', color:'#ea580c', enabled:true,
+    url:"https://news.google.com/rss/search?q=%22Feynman%22+OR+%22k%E1%BB%B9+thu%E1%BA%ADt+Feynman%22+OR+%22c%C3%A1ch+h%E1%BB%8Dc+hi%E1%BB%87u+qu%E1%BA%A3%22&hl=vi&gl=VN&ceid=VN:vi" },
+  { id:'g_stem_vn', name:"Chủ đề: Học toán · Vật lý (VN)", pack:'tech', group:'learn', lang:'vi', color:'#1d4ed8', enabled:true,
+    url:"https://news.google.com/rss/search?q=%22h%E1%BB%8Dc+to%C3%A1n%22+OR+%22h%E1%BB%8Dc+v%E1%BA%ADt+l%C3%BD%22+OR+%22ph%C6%B0%C6%A1ng+ph%C3%A1p+h%E1%BB%8Dc+to%C3%A1n%22+OR+%22%C3%B4n+thi%22+to%C3%A1n+OR+v%E1%BA%ADt+l%C3%BD&hl=vi&gl=VN&ceid=VN:vi" },
 
   { id:'thn', name:"The Hacker News", pack:'tech', group:'sec', color:'#d62828', enabled:true,
     url:"https://feeds.feedburner.com/TheHackersNews" },
