@@ -189,6 +189,34 @@ function readable(html, url){
   finally { dom.window.close(); }
 }
 
+/* Link của Google News là dạng news.google.com/rss/articles/CBMi… — một mã đóng,
+   không giải cục bộ được (thử base64 chỉ ra chuỗi token, không phải URL).
+   Cách duy nhất là gọi vào rồi lần theo dấu vết trong trang trả về. */
+const GNEWS_RE = /^https?:\/\/news\.google\.com\//i;
+
+async function resolveGoogleLink(url){
+  const r = await fetch(url, {
+    redirect: 'follow',
+    headers: { 'user-agent': BROWSER_UA, 'accept-language': 'vi,en;q=0.9' }
+  });
+  if (r.url && !GNEWS_RE.test(r.url)) return r.url;        // Google tự chuyển hướng thẳng
+  const html = await r.text();
+  const pats = [
+    /data-n-au="([^"]+)"/i,                                 // thuộc tính Google hay dùng
+    /<meta[^>]+http-equiv=["']refresh["'][^>]+url=([^"'>\s]+)/i,
+    /<link[^>]+rel=["']canonical["'][^>]+href="(https?:\/\/(?!news\.google)[^"]+)"/i,
+    /href="(https?:\/\/(?!news\.google|accounts\.google|policies\.google|support\.google|www\.google)[^"]+)"/i
+  ];
+  for (const re of pats){
+    const m = html.match(re);
+    if (m && m[1]){
+      const u = m[1].replace(/&amp;/g, '&');
+      if (!GNEWS_RE.test(u)) return u;
+    }
+  }
+  return null;
+}
+
 async function extractMissing(items, prev){
   const todo = [];
   for (const it of items){
@@ -221,17 +249,23 @@ async function extractMissing(items, prev){
 
   console.log(`\nBóc nội dung trang gốc: ${queue.length} bài mới từ ${perSrc.size} nguồn` +
               (todo.length > queue.length ? ` (còn ${todo.length - queue.length} bài để lần sau)` : ''));
-  let ok = 0;
+  let ok = 0, gnTried = 0, gnOk = 0;
   const worker = async () => {
     while (queue.length){
       const it = queue.shift();
       try{
+        if (GNEWS_RE.test(it.l)){          // đổi link Google News sang link báo gốc trước đã
+          gnTried++;
+          const real = await resolveGoogleLink(it.l);
+          if (real){ it.l = real; gnOk++; } else continue;
+        }
         const content = readable(await fetchPage(it.l), it.l);
         if (content){ it._full = content; ok++; }
       }catch{}
     }
   };
   await Promise.all(Array.from({ length: Math.min(EXTRACT_CONC, queue.length) }, worker));
+  if (gnTried) console.log(`  đổi link Google News sang báo gốc: ${gnOk}/${gnTried}`);
   return { tried: todo.length, ok, reused: items.filter(i => i._full).length - ok };
 }
 
@@ -296,12 +330,28 @@ for (const it of sorted){                       // vòng 2: lấp chỗ trống 
   if (kept.size >= MAX_ITEMS) break;
   kept.add(it);
 }
-const items = sorted.filter(it => kept.has(it));
+let items = sorted.filter(it => kept.has(it));
 
 /* Bài nào feed không kèm toàn văn thì tải trang gốc rồi bóc phần thân bài.
    Đọc lại kết quả lần trước TRƯỚC khi xoá thư mục, để chỉ tải bài thật sự mới. */
 const prevContent = readPrevContent();
 const ex = await extractMissing(items, prevContent);
+
+/* Đổi link xong có thể sinh trùng mới: bài qua Google News giờ cùng link với bài
+   lấy thẳng từ feed báo gốc. Gộp lại một lần nữa, giữ bản có toàn văn. */
+{
+  const m2 = new Map();
+  for (const it of items){
+    const old = m2.get(it.l);
+    if (!old){ m2.set(it.l, it); continue; }
+    old.a = old.a || [];
+    if (old.i !== it.i && !old.a.includes(it.i)) old.a.push(it.i);
+    if (!old._full && it._full) old._full = it._full;
+  }
+  const truoc = items.length;
+  items = [...m2.values()];
+  if (truoc !== items.length) console.log(`  gộp thêm ${truoc - items.length} bài trùng sau khi đổi link`);
+}
 
 /* Tách toàn văn ra file riêng theo từng nguồn: content/<id>.json
    Trang chỉ tải file của nguồn nào khi bạn mở bài của nguồn đó, nên data.json

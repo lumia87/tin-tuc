@@ -1250,6 +1250,11 @@ async function articleHtml(item){
     }
   }
 
+  // link Google News chưa đổi được sang báo gốc: có tải cũng chỉ ra trang chuyển hướng,
+  // báo ngay cho nhanh thay vì bắt người đọc chờ hết mấy vòng timeout
+  if (/^https?:\/\/news\.google\.com\//i.test(item.link))
+    throw new Error('link Google News chưa dẫn thẳng tới báo gốc');
+
   const html = await fetchArticleHtml(item.link);
   const doc  = new DOMParser().parseFromString(html, 'text/html');
   const baseHref = doc.querySelector('base[href]')?.getAttribute('href') || item.link;
