@@ -51,11 +51,30 @@
   .btn:hover{border-color:var(--accent);color:var(--accent)}
   .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
   .btn.primary:hover{opacity:.9;color:#fff}
-  .tabs{display:flex;gap:2px;overflow-x:auto;border-bottom:1px solid var(--line);margin-bottom:10px;scrollbar-width:none}
-  .tabs::-webkit-scrollbar{display:none}
+  /* Tab xuống dòng thay vì trượt ngang: màn hình laptop nhỏ vẫn thấy đủ mọi chuyên mục.
+     Trước đây chúng trượt ngang mà không có dấu hiệu gì nên trông như bị mất. */
+  .tabs{
+    display:flex;gap:2px 4px;flex-wrap:wrap;
+    border-bottom:1px solid var(--line);margin-bottom:10px;padding-bottom:2px
+  }
   .tab{
-    border:0;background:transparent;color:var(--muted);padding:8px 12px 10px;font-size:13.5px;
-    cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-1px;font-weight:550
+    border:0;background:transparent;color:var(--muted);padding:7px 11px 9px;font-size:13.5px;
+    cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-3px;font-weight:550;
+    border-radius:8px 8px 0 0
+  }
+  .tab:hover{background:var(--chip)}
+  @media(max-width:1200px){ .tab{padding:6px 9px 8px;font-size:13px} }
+  @media(max-width:820px){ .tab{padding:6px 8px 8px;font-size:12.5px} .tab .n{margin-left:4px} }
+  /* Điện thoại: xuống dòng thì tốn 4 hàng, nên cho trượt ngang — kèm vệt mờ ở mép phải
+     để thấy rõ là còn tab phía sau, khác với kiểu trượt ngầm trước đây. */
+  @media(max-width:720px){
+    .tabs{
+      flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;
+      -webkit-overflow-scrolling:touch;
+      -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);
+      mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent)
+    }
+    .tabs::-webkit-scrollbar{display:none}
   }
   .tab:hover{color:var(--text)}
   .tab[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
@@ -291,6 +310,7 @@ const GROUPS = [
   { id:'vn', name:"Tiếng Việt", pack:'tech' },
   { id:'deep', name:"Chuyên sâu · Kỹ thuật", pack:'tech' },
   { id:'bio', name:"Chân dung · Cách học", pack:'tech' },
+  { id:'learn', name:"Tâm lý · Năng suất · Ghi nhớ", pack:'tech' },
   { id:'sec', name:"Bảo mật · Hacker", pack:'tech' },
   { id:'linux', name:"Linux", pack:'tech' },
   { id:'net', name:"Quản trị mạng", pack:'tech' },
@@ -310,7 +330,7 @@ const GROUPS = [
 
 const SOURCES = [
   { id:'qtm', name:"Quản Trị Mạng", pack:'tech', group:'vn', lang:'vi', color:'#e2574c', enabled:true,
-    url:"https://www.bing.com/news/search?q=site%3Aquantrimang.com&format=RSS&sortbydate=1&setmkt=vi-vn&cc=VN" },
+    url:"https://news.google.com/rss/search?q=site%3Aquantrimang.com+when%3A7d&hl=vi&gl=VN&ceid=VN:vi" },
   { id:'vnex', name:"VnExpress Số hóa", pack:'tech', group:'vn', lang:'vi', color:'#1a73e8', enabled:true,
     url:"https://vnexpress.net/rss/so-hoa.rss" },
   { id:'genk', name:"GenK", pack:'tech', group:'vn', lang:'vi', color:'#f0a020', enabled:true,
@@ -333,12 +353,13 @@ const SOURCES = [
     url:"https://blog.pragmaticengineer.com/rss/" },
   { id:'swillison', name:"Simon Willison", pack:'tech', group:'deep', color:'#7c3aed', enabled:true,
     url:"https://simonwillison.net/atom/everything/" },
-  { id:'g_legend', name:"Chủ đề: Knuth · Liskov · Dijkstra · Thompson", pack:'tech', group:'bio', color:'#1e3a8a', enabled:true,
-    url:"https://www.bing.com/news/search?q=%22Donald+Knuth%22+OR+%22Barbara+Liskov%22+OR+%22Ken+Thompson%22+OR+%22Edsger+Dijkstra%22+OR+%22Turing+Award%22&format=RSS&sortbydate=1&setmkt=en-us&cc=US" },
-  { id:'g_pioneer', name:"Chủ đề: Kay · Torvalds · Hopper · Hamilton", pack:'tech', group:'bio', color:'#7c3aed', enabled:true,
-    url:"https://www.bing.com/news/search?q=%22Alan+Kay%22+OR+%22Linus+Torvalds%22+OR+%22Bjarne+Stroustrup%22+OR+%22Grace+Hopper%22+OR+%22Margaret+Hamilton%22&format=RSS&sortbydate=1&setmkt=en-us&cc=US" },
+  /* Bing News RSS chủ đề hay trả về 0 item — tắt hoặc chuyển sang Google News */
+  { id:'g_legend', name:"Chủ đề: Knuth · Liskov · Dijkstra · Thompson", pack:'tech', group:'bio', color:'#1e3a8a', enabled:false,
+    url:"https://news.google.com/rss/search?q=%22Donald+Knuth%22+OR+%22Barbara+Liskov%22+OR+%22Ken+Thompson%22+OR+%22Edsger+Dijkstra%22&hl=en-US&gl=US&ceid=US:en" },
+  { id:'g_pioneer', name:"Chủ đề: Kay · Torvalds · Hopper · Hamilton", pack:'tech', group:'bio', color:'#7c3aed', enabled:false,
+    url:"https://news.google.com/rss/search?q=%22Alan+Kay%22+OR+%22Linus+Torvalds%22+OR+%22Grace+Hopper%22+OR+%22Margaret+Hamilton%22&hl=en-US&gl=US&ceid=US:en" },
   { id:'g_biovn', name:"Chân dung nhà khoa học (tiếng Việt)", pack:'tech', group:'bio', lang:'vi', color:'#dc2626', enabled:true,
-    url:"https://www.bing.com/news/search?q=%22nh%C3%A0+to%C3%A1n+h%E1%BB%8Dc%22+OR+%22nh%C3%A0+khoa+h%E1%BB%8Dc%22+ch%C3%A2n+dung+OR+ti%E1%BB%83u+s%E1%BB%AD&format=RSS&sortbydate=1&setmkt=vi-vn&cc=VN" },
+    url:"https://news.google.com/rss/search?q=%22nh%C3%A0+khoa+h%E1%BB%8Dc%22+OR+%22nh%C3%A0+to%C3%A1n+h%E1%BB%8Dc%22+ch%C3%A2n+dung+OR+ti%E1%BB%83u+s%E1%BB%AD&hl=vi&gl=VN&ceid=VN:vi" },
   { id:'marginalian', name:"The Marginalian", pack:'tech', group:'bio', color:'#b45309', enabled:true,
     url:"https://www.themarginalian.org/feed/" },
   { id:'aeon', name:"Aeon Essays", pack:'tech', group:'bio', color:'#0f766e', enabled:true,
@@ -347,6 +368,25 @@ const SOURCES = [
     url:"https://fs.blog/feed/" },
   { id:'nautilus2', name:"Nautilus", pack:'tech', group:'bio', color:'#155e75', enabled:true,
     url:"https://nautil.us/feed/" },
+
+  /* Tâm lý · Năng suất · Ghi nhớ · Cách học */
+  { id:'gtd', name:"Getting Things Done (David Allen)", pack:'tech', group:'learn', color:'#0f766e', enabled:true,
+    url:"https://gettingthingsdone.com/feed/" },
+  { id:'calnewport', name:"Cal Newport (Deep Work)", pack:'tech', group:'learn', color:'#1e3a8a', enabled:true,
+    url:"https://calnewport.com/feed/" },
+  { id:'jclear', name:"James Clear (Atomic Habits)", pack:'tech', group:'learn', color:'#b45309', enabled:true,
+    url:"https://jamesclear.com/feed/" },
+  { id:'g_kahneman', name:"Chủ đề: Kahneman · Tversky", pack:'tech', group:'learn', color:'#7c3aed', enabled:true,
+    url:"https://news.google.com/rss/search?q=%22Daniel+Kahneman%22+OR+%22Amos+Tversky%22&hl=en-US&gl=US&ceid=US:en" },
+  { id:'g_goleman', name:"Chủ đề: Daniel Goleman · EQ", pack:'tech', group:'learn', color:'#db2777', enabled:true,
+    url:"https://news.google.com/rss/search?q=%22Daniel+Goleman%22+OR+%22emotional+intelligence%22&hl=en-US&gl=US&ceid=US:en" },
+  { id:'g_dweck', name:"Chủ đề: Carol Dweck · Growth Mindset", pack:'tech', group:'learn', color:'#0891b2', enabled:true,
+    url:"https://news.google.com/rss/search?q=%22Carol+Dweck%22+OR+%22growth+mindset%22&hl=en-US&gl=US&ceid=US:en" },
+  { id:'g_prod', name:"Chủ đề: Deep Work · Habits · GTD", pack:'tech', group:'learn', color:'#334155', enabled:true,
+    url:"https://news.google.com/rss/search?q=%22Cal+Newport%22+OR+%22James+Clear%22+OR+%22David+Allen%22+OR+%22atomic+habits%22+OR+%22deep+work%22+OR+GTD&hl=en-US&gl=US&ceid=US:en" },
+  { id:'g_learn_vn', name:"Chủ đề: Phương pháp học · Ghi nhớ (VN)", pack:'tech', group:'learn', lang:'vi', color:'#dc2626', enabled:true,
+    url:"https://news.google.com/rss/search?q=%22ph%C6%B0%C6%A1ng+ph%C3%A1p+h%E1%BB%8Dc%22+OR+%22k%E1%BB%B9+thu%E1%BA%ADt+ghi+nh%E1%BB%9B%22+OR+%22n%C4%83ng+su%E1%BA%A5t+l%C3%A0m+vi%E1%BB%87c%22&hl=vi&gl=VN&ceid=VN:vi" },
+
   { id:'thn', name:"The Hacker News", pack:'tech', group:'sec', color:'#d62828', enabled:true,
     url:"https://feeds.feedburner.com/TheHackersNews" },
   { id:'bleep', name:"BleepingComputer", pack:'tech', group:'sec', color:'#0a7cbd', enabled:true,
@@ -406,7 +446,7 @@ const SOURCES = [
   { id:'quanta', name:"Quanta Magazine", pack:'tech', group:'sci', color:'#7c3aed', enabled:true,
     url:"https://www.quantamagazine.org/feed/" },
   { id:'khoahoc', name:"KhoaHoc.tv (VN)", pack:'tech', group:'sci', lang:'vi', color:'#0891b2', enabled:true,
-    url:"https://www.bing.com/news/search?q=site%3Akhoahoc.tv&format=RSS&sortbydate=1&setmkt=vi-vn&cc=VN" },
+    url:"https://news.google.com/rss/search?q=site%3Akhoahoc.tv+when%3A7d&hl=vi&gl=VN&ceid=VN:vi" },
   { id:'vnex_kh2', name:"VnExpress Khoa học", pack:'tech', group:'sci', lang:'vi', color:'#00897b', enabled:true,
     url:"https://vnexpress.net/rss/khoa-hoc.rss" },
   { id:'scinews', name:"Science News", pack:'tech', group:'sci', color:'#b91c1c', enabled:true,
@@ -420,7 +460,7 @@ const SOURCES = [
   { id:'ghtr', name:"GitHub Trending", pack:'tech', group:'dev', color:'#22a06b', enabled:true,
     url:"https://mshibanami.github.io/GitHubTrendingRSS/daily/all.xml" },
   { id:'g_prize', name:"Chủ đề: Fields · Abel · Nobel (phỏng vấn)", pack:'tech', group:'bio', color:'#a16207', enabled:false,
-    url:"https://www.bing.com/news/search?q=%22Fields+Medal%22+OR+%22Abel+Prize%22+OR+%22Turing+Award%22&format=RSS&sortbydate=1&setmkt=en-us&cc=US" },
+    url:"https://news.google.com/rss/search?q=%22Fields+Medal%22+OR+%22Abel+Prize%22+OR+%22Turing+Award%22&hl=en-US&gl=US&ceid=US:en" },
   { id:'lex', name:"Lex Fridman Podcast", pack:'tech', group:'bio', color:'#0284c7', enabled:false,
     url:"https://lexfridman.com/feed/podcast/" },
   { id:'jvns', name:"Julia Evans", pack:'tech', group:'deep', color:'#db2777', enabled:false,
@@ -438,7 +478,7 @@ const SOURCES = [
   { id:'tds', name:"Towards Data Science", pack:'tech', group:'deep', color:'#0ea5e9', enabled:false,
     url:"https://towardsdatascience.com/feed" },
   { id:'gfg', name:"GeeksforGeeks (qua Google News)", pack:'tech', group:'deep', color:'#2f8d46', enabled:false,
-    url:"https://www.bing.com/news/search?q=site%3Ageeksforgeeks.org&format=RSS&sortbydate=1&setmkt=en-us&cc=US" },
+    url:"https://news.google.com/rss/search?q=site%3Ageeksforgeeks.org+when%3A7d&hl=en-US&gl=US&ceid=US:en" },
   { id:'schneier', name:"Schneier on Security", pack:'tech', group:'sec', color:'#6b7280', enabled:false,
     url:"https://www.schneier.com/feed/atom/" },
   { id:'darkread', name:"Dark Reading", pack:'tech', group:'sec', color:'#111827', enabled:false,
@@ -490,23 +530,23 @@ const SOURCES = [
   { id:'verge', name:"The Verge", pack:'tech', group:'dev', color:'#5200ff', enabled:false,
     url:"https://www.theverge.com/rss/index.xml" },
   { id:'g_bhxh', name:"Chủ đề: Bảo hiểm xã hội", pack:'hr', group:'bhxh', lang:'vi', color:'#0e7490', enabled:true,
-    url:"https://www.bing.com/news/search?q=%22b%E1%BA%A3o+hi%E1%BB%83m+x%C3%A3+h%E1%BB%99i%22&format=RSS&sortbydate=1&setmkt=vi-vn&cc=VN" },
+    url:"https://news.google.com/rss/search?q=%22b%E1%BA%A3o+hi%E1%BB%83m+x%C3%A3+h%E1%BB%99i%22+when%3A14d&hl=vi&gl=VN&ceid=VN:vi" },
   { id:'g_luong', name:"Chủ đề: Tiền lương · Lương cơ sở", pack:'hr', group:'bhxh', lang:'vi', color:'#b45309', enabled:true,
-    url:"https://www.bing.com/news/search?q=%22ti%E1%BB%81n+l%C6%B0%C6%A1ng+t%E1%BB%91i+thi%E1%BB%83u%22+OR+%22l%C6%B0%C6%A1ng+c%C6%A1+s%E1%BB%9F%22+OR+%22c%E1%BA%A3i+c%C3%A1ch+ti%E1%BB%81n+l%C6%B0%C6%A1ng%22&format=RSS&sortbydate=1&setmkt=vi-vn&cc=VN" },
+    url:"https://news.google.com/rss/search?q=%28%22ti%E1%BB%81n+l%C6%B0%C6%A1ng+t%E1%BB%91i+thi%E1%BB%83u%22+OR+%22l%C6%B0%C6%A1ng+c%C6%A1+s%E1%BB%9F%22+OR+%22c%E1%BA%A3i+c%C3%A1ch+ti%E1%BB%81n+l%C6%B0%C6%A1ng%22%29+when%3A30d&hl=vi&gl=VN&ceid=VN:vi" },
   { id:'g_vss', name:"Cổng BHXH Việt Nam", pack:'hr', group:'bhxh', lang:'vi', color:'#047857', enabled:true,
-    url:"https://www.bing.com/news/search?q=site%3Abaohiemxahoi.gov.vn&format=RSS&sortbydate=1&setmkt=vi-vn&cc=VN" },
+    url:"https://news.google.com/rss/search?q=site%3Abaohiemxahoi.gov.vn+when%3A30d&hl=vi&gl=VN&ceid=VN:vi" },
   { id:'g_tvpl', name:"Thư Viện Pháp Luật", pack:'hr', group:'policy', lang:'vi', color:'#1d4ed8', enabled:true,
-    url:"https://www.bing.com/news/search?q=site%3Athuvienphapluat.vn&format=RSS&sortbydate=1&setmkt=vi-vn&cc=VN" },
+    url:"https://news.google.com/rss/search?q=site%3Athuvienphapluat.vn+when%3A7d&hl=vi&gl=VN&ceid=VN:vi" },
   { id:'g_cp', name:"Báo Chính phủ · Chính sách mới", pack:'hr', group:'policy', lang:'vi', color:'#b91c1c', enabled:true,
-    url:"https://www.bing.com/news/search?q=site%3Abaochinhphu.vn&format=RSS&sortbydate=1&setmkt=vi-vn&cc=VN" },
+    url:"https://news.google.com/rss/search?q=site%3Abaochinhphu.vn+%28%22ch%C3%ADnh+s%C3%A1ch%22+OR+%22ngh%E1%BB%8B+%C4%91%E1%BB%8Bnh%22+OR+%22th%C3%B4ng+t%C6%B0%22%29+when%3A7d&hl=vi&gl=VN&ceid=VN:vi" },
   { id:'g_bllđ', name:"Chủ đề: Luật lao động · Hợp đồng", pack:'hr', group:'policy', lang:'vi', color:'#7c3aed', enabled:true,
-    url:"https://www.bing.com/news/search?q=%22b%E1%BB%99+lu%E1%BA%ADt+lao+%C4%91%E1%BB%99ng%22+OR+%22h%E1%BB%A3p+%C4%91%E1%BB%93ng+lao+%C4%91%E1%BB%99ng%22&format=RSS&sortbydate=1&setmkt=vi-vn&cc=VN" },
+    url:"https://news.google.com/rss/search?q=%28%22b%E1%BB%99+lu%E1%BA%ADt+lao+%C4%91%E1%BB%99ng%22+OR+%22h%E1%BB%A3p+%C4%91%E1%BB%93ng+lao+%C4%91%E1%BB%99ng%22%29+when%3A30d&hl=vi&gl=VN&ceid=VN:vi" },
   { id:'dantri_ld', name:"Dân trí · Lao động - Việc làm", pack:'hr', group:'ld', lang:'vi', color:'#0891b2', enabled:true,
     url:"https://dantri.com.vn/rss/lao-dong-viec-lam.rss" },
   { id:'g_ld', name:"Báo Lao Động", pack:'hr', group:'ld', lang:'vi', color:'#dc2626', enabled:true,
-    url:"https://www.bing.com/news/search?q=site%3Alaodong.vn&format=RSS&sortbydate=1&setmkt=vi-vn&cc=VN" },
+    url:"https://news.google.com/rss/search?q=site%3Alaodong.vn+when%3A3d&hl=vi&gl=VN&ceid=VN:vi" },
   { id:'g_ns', name:"Chủ đề: Nhân sự · Thị trường lao động", pack:'hr', group:'ld', lang:'vi', color:'#ea580c', enabled:true,
-    url:"https://www.bing.com/news/search?q=%22qu%E1%BA%A3n+tr%E1%BB%8B+nh%C3%A2n+s%E1%BB%B1%22+OR+%22th%E1%BB%8B+tr%C6%B0%E1%BB%9Dng+lao+%C4%91%E1%BB%99ng%22+OR+%22tuy%E1%BB%83n+d%E1%BB%A5ng%22&format=RSS&sortbydate=1&setmkt=vi-vn&cc=VN" },
+    url:"https://news.google.com/rss/search?q=%28%22qu%E1%BA%A3n+tr%E1%BB%8B+nh%C3%A2n+s%E1%BB%B1%22+OR+%22th%E1%BB%8B+tr%C6%B0%E1%BB%9Dng+lao+%C4%91%E1%BB%99ng%22+OR+%22tuy%E1%BB%83n+d%E1%BB%A5ng%22%29+when%3A7d&hl=vi&gl=VN&ceid=VN:vi" },
   { id:'hrdive', name:"HR Dive", pack:'hr', group:'hr', color:'#2563eb', enabled:true,
     url:"https://www.hrdive.com/feeds/news/" },
   { id:'bersin', name:"Josh Bersin", pack:'hr', group:'hr', color:'#7c2d12', enabled:true,
@@ -526,9 +566,9 @@ const SOURCES = [
   { id:'hr_owid', name:"Our World in Data", pack:'hr', group:'soc', color:'#e11d48', enabled:true,
     url:"https://ourworldindata.org/atom.xml" },
   { id:'g_bhtn', name:"Chủ đề: BH thất nghiệp · BHYT", pack:'hr', group:'bhxh', lang:'vi', color:'#65a30d', enabled:false,
-    url:"https://www.bing.com/news/search?q=%22b%E1%BA%A3o+hi%E1%BB%83m+th%E1%BA%A5t+nghi%E1%BB%87p%22+OR+%22b%E1%BA%A3o+hi%E1%BB%83m+y+t%E1%BA%BF%22&format=RSS&sortbydate=1&setmkt=vi-vn&cc=VN" },
+    url:"https://news.google.com/rss/search?q=%28%22b%E1%BA%A3o+hi%E1%BB%83m+th%E1%BA%A5t+nghi%E1%BB%87p%22+OR+%22b%E1%BA%A3o+hi%E1%BB%83m+y+t%E1%BA%BF%22%29+when%3A14d&hl=vi&gl=VN&ceid=VN:vi" },
   { id:'g_moha', name:"Bộ Nội vụ", pack:'hr', group:'policy', lang:'vi', color:'#4d7c0f', enabled:false,
-    url:"https://www.bing.com/news/search?q=site%3Amoha.gov.vn&format=RSS&sortbydate=1&setmkt=vi-vn&cc=VN" },
+    url:"https://news.google.com/rss/search?q=site%3Amoha.gov.vn+when%3A30d&hl=vi&gl=VN&ceid=VN:vi" },
   { id:'vnex_kd', name:"VnExpress · Kinh doanh", pack:'hr', group:'ld', lang:'vi', color:'#1a73e8', enabled:false,
     url:"https://vnexpress.net/rss/kinh-doanh.rss" },
   { id:'tt_kd', name:"Tuổi Trẻ · Kinh doanh", pack:'hr', group:'ld', lang:'vi', color:'#0284c7', enabled:false,
@@ -1035,10 +1075,14 @@ function renderTabs(){
        ${esc(g.name)}<span class="n">${c[g.id] || ''}</span></button>`).join('');
 }
 
+/* Số chip hiện khi chưa mở rộng. Trước đây hiện HẾT nguồn đang bật — ở tab "Tất cả"
+   là mấy chục cái, đẩy thanh đầu cao tới 70% màn hình laptop và nuốt mất danh sách bài. */
+const CHIP_PREVIEW = 8;
+
 function renderChips(){
   renderTabs();
   const list   = state.sources.filter(inGroup);
-  const shown  = state.expand ? list : list.filter(s => s.on);
+  const shown  = state.expand ? list : list.filter(s => s.on).slice(0, CHIP_PREVIEW);
   const hidden = list.length - shown.length;
 
   let html = shown.map(s => {
