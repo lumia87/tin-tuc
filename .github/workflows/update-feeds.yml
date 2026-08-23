@@ -1,25 +1,35 @@
 name: Gom tin RSS
 
+# Bản này KHÔNG commit data.json vào kho. Nó dựng ra thư mục _site rồi đưa thẳng
+# lên GitHub Pages. Nhờ vậy hàng megabyte toàn văn không nằm lại trong lịch sử git.
+#
+# Cần đổi một lần trong Settings -> Pages: Source chọn "GitHub Actions"
+# (thay cho "Deploy from a branch").
+
 on:
   schedule:
-    - cron: '*/30 * * * *'      # cứ 30 phút một lần (giờ UTC, GitHub có thể chạy trễ vài phút)
-  workflow_dispatch:             # cho phép bấm chạy tay trong tab Actions
+    - cron: '0 */2 * * *'        # 2 giờ một lần (giờ UTC). Đổi thành '*/30 * * * *' nếu cần tươi hơn.
+  workflow_dispatch:
   push:
+    branches: [main]
     paths:
-      - 'index.html'             # đổi danh sách nguồn là dựng lại ngay
+      - 'index.html'
       - 'fetch-feeds.mjs'
       - '.github/workflows/update-feeds.yml'
 
 permissions:
-  contents: write                # cần quyền này để ghi data.json ngược lại kho
+  contents: read
+  pages: write
+  id-token: write
 
 concurrency:
-  group: gom-tin
+  group: pages
   cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
 
@@ -27,22 +37,37 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Cài thư viện đọc XML
-        run: npm install --no-save fast-xml-parser
+      # Nhớ lại toàn văn đã bóc ở lần chạy trước -> mỗi lần chỉ tải bài thật sự mới
+      - name: Khôi phục nội dung đã bóc
+        uses: actions/cache@v5
+        with:
+          path: content
+          key: noi-dung-${{ github.run_id }}
+          restore-keys: noi-dung-
 
-      - name: Gom feed và ghi data.json
+      - name: Cài thư viện
+        run: npm install --no-save fast-xml-parser jsdom @mozilla/readability
+
+      - name: Gom feed, bóc nội dung, ghi data.json
         run: node fetch-feeds.mjs index.html data.json
 
-      - name: Đẩy data.json lên kho nếu có thay đổi
+      - name: Dựng thư mục _site
         run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # phải add trước rồi so ở vùng đã stage — "git diff" không thấy file mới tạo lần đầu
-          git add -A data.json content
-          if git diff --cached --quiet -- data.json content; then
-            echo "Không có tin mới, bỏ qua."
-            exit 0
-          fi
-          git commit -m "Cập nhật tin $(date -u '+%Y-%m-%d %H:%M UTC')"
-          git pull --rebase --autostash origin main || true
-          git push
+          mkdir -p _site
+          cp index.html data.json _site/
+          if [ -d content ]; then cp -r content _site/content; fi
+          du -sh _site
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
